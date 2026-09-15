@@ -1,0 +1,8 @@
+{
+  "name": "Grok Remote",
+  "short_name": "Grok Remote",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10"
+}

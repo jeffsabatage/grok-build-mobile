@@ -1,0 +1,23 @@
+{
+  "appId": "com.sabatage.grokremote",
+  "appName": "Grok Remote",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": [
+      "http://*",
+      "https://*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#0b0d10"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_grok_remote",
+      "iconColor": "#7aa2ff"
+    }
+  }
+}

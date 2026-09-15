@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Grok Remote</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css?v=20260914ao" />
+</head>
+<body>
+  <div id="connectOverlay" class="overlay splash hidden">
+    <div class="splash-card">
+      <div class="splash-brand">Grok Remote</div>
+      <p class="splash-ver" id="splashVersions">App …</p>
+      <p class="mute" id="connectStatus">Looking for Grok Remote on this Wi‑Fi…</p>
+      <label>Gateway URL</label>
+      <input id="gatewayUrl" type="url" placeholder="http://&lt;pc-ip&gt;:2420" />
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <button id="btnConnectGw" class="primary" type="button">Connect</button>
+        <button id="btnScanGw" class="ghost" type="button">Scan LAN</button>
+      </div>
+      <p class="mute" id="connectLog" style="margin-top:12px;white-space:pre-wrap;"></p>
+    </div>
+  </div>
+  <div id="lockOverlay" class="overlay hidden">
+    <div class="card" style="margin:24px;">
+      <h2>Unlock Grok Remote</h2>
+      <p class="mute">Enter your PIN to open sessions on this phone.</p>
+      <input id="pinUnlock" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="PIN" />
+      <p id="lockErr" class="mute"></p>
+      <button id="btnUnlock" class="primary" type="button">Unlock</button>
+    </div>
+  </div>
+  <div id="app">
+    <header class="top">
+      <button id="btnBack" class="icon-btn hidden" type="button" aria-label="Back">‹</button>
+      <div class="top-titles">
+        <div id="brandTitle" class="brand">Grok Remote</div>
+        <div id="subTitle" class="sub">Connecting…</div>
+      </div>
+      <button id="btnFind" class="icon-btn hidden" type="button" title="Find in thread">⌕</button>
+      <button id="btnNew" class="icon-btn" type="button" title="New session">＋</button>
+      <button id="btnSettings" class="icon-btn" type="button" title="Settings">⚙</button>
+    </header>
+
+    <div id="updateBanner" class="update-banner hidden" hidden>
+      <div class="update-copy">
+        <strong id="updateTitle">Update available</strong>
+        <p id="updateNotes"></p>
+        <button id="btnChangelogMini" class="linkish" type="button">View changelog</button>
+      </div>
+      <div class="update-actions">
+        <button id="btnUpdateDownload" class="primary" type="button">Download APK</button>
+        <button id="btnUpdateDismiss" class="ghost" type="button">Later</button>
+      </div>
+    </div>
+
+    <main id="rosterView" class="view">
+      <div id="ptr" class="ptr" aria-hidden="true">Pull to refresh</div>
+      <div class="search-row">
+        <input id="search" type="search" placeholder="Search sessions" autocomplete="off" />
+      </div>
+      <div class="roster-tools">
+        <button id="btnShowHidden" class="ghost hidden" type="button">Show hidden</button>
+      </div>
+      <div id="roster" class="roster"></div>
+    </main>
+
+    <main id="threadView" class="view hidden">
+      <div id="findBar" class="find-bar hidden">
+        <input id="findQ" type="search" placeholder="Find in thread…" />
+        <span id="findCount" class="find-count"></span>
+        <button id="findPrev" class="icon-btn" type="button" aria-label="Previous">↑</button>
+        <button id="findNext" class="icon-btn" type="button" aria-label="Next">↓</button>
+        <button id="findClose" class="icon-btn" type="button" aria-label="Close find">×</button>
+      </div>
+      <div id="thread" class="thread"></div>
+      <button id="btnJump" class="jump-btn hidden" type="button" aria-label="Jump to bottom">↓</button>
+      <div id="permBox" class="perm hidden"></div>
+      <div id="turnStatus" class="turn-status hidden" aria-live="polite">
+        <span class="spin" aria-hidden="true"></span>
+        <span id="turnStatusLabel">Waiting for response…</span>
+        <span id="turnStatusTime" class="turn-time">0.0s</span>
+        <button id="btnStop" type="button" class="ghost">Stop</button>
+      </div>
+      <div id="queueBox" class="queue hidden"></div>
+      <div id="attachRow" class="attach-row hidden"></div>
+      <div class="composer-wrap" id="composerWrap" data-mode="auto">
+        <form id="composer" class="composer">
+          <textarea id="prompt" rows="3" placeholder="Message Grok…"></textarea>
+          <div class="composer-tools">
+            <button id="btnSlash" type="button" class="icon-btn" title="Commands">/</button>
+            <button id="btnAt" type="button" class="icon-btn" title="Insert @file" aria-label="Insert file">@</button>
+            <button id="btnHistory" type="button" class="icon-btn" title="Command history" aria-label="Command history">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5"></circle>
+                <path d="M12 7.5V12l3.2 2"></path>
+              </svg>
+            </button>
+            <button id="btnAttach" type="button" class="icon-btn" title="Attach image" aria-label="Attach image">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21.2 11.4l-8.4 8.4a5 5 0 0 1-7.1-7.1l9.5-9.5a3.2 3.2 0 1 1 4.5 4.5l-9.5 9.5a1.4 1.4 0 1 1-2-2l8.2-8.2"></path>
+              </svg>
+            </button>
+            <button id="btnMic" type="button" class="icon-btn" title="Dictate" aria-label="Dictate">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="2.5" width="6" height="11" rx="3"></rect>
+                <path d="M6.5 11a5.5 5.5 0 0 0 11 0"></path>
+                <path d="M12 16.5V21"></path>
+                <path d="M8.5 21h7"></path>
+              </svg>
+            </button>
+            <span class="tools-spacer"></span>
+            <button id="btnSend" type="submit" class="primary">Send</button>
+          </div>
+          <input id="fileAttach" type="file" accept="image/*" hidden />
+          <input id="fileCamera" type="file" accept="image/*" capture="environment" hidden />
+        </form>
+        <div id="modeToggles" class="mode-toggles" role="tablist" aria-label="Session mode">
+          <button type="button" class="mode-btn" data-mode="ask" title="Ask (normal)">Ask</button>
+          <button type="button" class="mode-btn" data-mode="plan" title="Plan">Plan</button>
+          <button type="button" class="mode-btn" data-mode="auto" title="Auto">Auto</button>
+          <button type="button" class="mode-btn" data-mode="always-approve" title="Always approve">Approve</button>
+        </div>
+        <div id="chipRow" class="chips">
+          <button id="chipMode" type="button" class="chip-btn hidden" title="Permission / plan mode">Ask</button>
+          <button id="chipModel" type="button" class="chip-btn" title="Model">Model</button>
+          <button id="chipEffort" type="button" class="chip-btn" title="Reasoning effort">Effort</button>
+          <button id="chipUsage" type="button" class="chip-btn" title="Context usage">Usage</button>
+          <button id="chipTodos" type="button" class="chip-btn hidden" title="Todos">Todos</button>
+        </div>
+      </div>
+      <div id="slashList" class="slash hidden"></div>
+      <div id="atList" class="slash hidden"></div>
+      <div id="histList" class="slash hist hidden"></div>
+      <div id="sheet" class="sheet hidden">
+        <div class="sheet-card">
+          <h3 id="sheetTitle">Choose</h3>
+          <div id="sheetOpts" class="sheet-opts"></div>
+          <button id="sheetCancel" class="ghost" type="button">Cancel</button>
+        </div>
+      </div>
+      <div id="planSheet" class="plan-sheet hidden">
+        <div class="plan-card">
+          <div class="plan-head">
+            <h3 id="planTitle">Review plan</h3>
+            <button id="planCopy" class="ghost" type="button">Copy</button>
+          </div>
+          <div id="planBody" class="plan-body md"></div>
+          <div class="plan-actions">
+            <button id="planApprove" class="primary" type="button">Approve</button>
+            <button id="planRevise" class="ghost" type="button">Request changes</button>
+            <button id="planQuit" class="ghost" type="button">Quit</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <main id="settingsView" class="view hidden">
+      <section class="card">
+        <h2>Connection</h2>
+        <p id="connInfo" class="mute"></p>
+        <button id="btnReconnect" class="ghost" type="button">Reconnect</button>
+      </section>
+      <section class="card">
+        <h2>App version</h2>
+        <p id="verInfo" class="mute"></p>
+        <button id="btnCheckUpdate" class="ghost" type="button">Check for APK update</button>
+        <a id="btnGetApk" class="primary link-btn" href="/downloads/Grok-Remote.apk">Download current APK</a>
+      </section>
+      <section class="card">
+        <h2>Changelog</h2>
+        <div id="changelog" class="changelog"></div>
+      </section>
+      <section class="card">
+        <h2>Notifications</h2>
+        <label class="toggle"><input id="notifyNeeds" type="checkbox" checked /> Approvals and problems</label>
+        <label class="toggle"><input id="notifyDone" type="checkbox" checked /> Pass complete</label>
+        <button id="btnEnableNotif" class="ghost" type="button">Enable notifications</button>
+      </section>
+      <section class="card">
+        <h2>Lock</h2>
+        <p id="pinHint" class="mute">Optional 4–8 digit PIN. Stored hashed on this phone only.</p>
+        <input id="pinSet" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="New PIN" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <button id="btnSetPin" class="primary" type="button">Set PIN</button>
+          <button id="btnClearPin" class="ghost" type="button">Clear PIN</button>
+        </div>
+        <label class="toggle"><input id="bioEnabled" type="checkbox" checked /> Fingerprint / face unlock when available</label>
+        <p id="bioHint" class="mute"></p>
+      </section>
+    </main>
+
+    <main id="newView" class="view hidden">
+      <section class="card">
+        <h2>New session</h2>
+        <label>Working directory</label>
+        <input id="newCwd" type="text" />
+        <label>First prompt</label>
+        <textarea id="newPrompt" rows="4" placeholder="What should Grok do?"></textarea>
+        <button id="btnStartSession" class="primary" type="button">Start</button>
+      </section>
+    </main>
+  </div>
+  <script>window.GROK_REMOTE_VERSION = "0.1.40";</script>
+  <script src="app.js?v=20260914ap"></script>
+</body>
+</html>
+

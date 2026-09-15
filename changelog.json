@@ -1,0 +1,373 @@
+[
+  {
+    "version": "0.1.40",
+    "date": "2026-09-15",
+    "title": "Collapse Execute and Writes",
+    "notes": [
+      "Execute and Write tool stacks collapse like Reads. Tap to expand; they stay open while running."
+    ]
+  },
+  {
+    "version": "0.1.39",
+    "date": "2026-09-15",
+    "title": "Half-screen @ file picker",
+    "notes": [
+      "The @ file list is a half-screen scrollable popup like / and history. It no longer fills the screen or opens the keyboard."
+    ]
+  },
+  {
+    "version": "0.1.38",
+    "date": "2026-09-15",
+    "title": "PC queue on the phone",
+    "notes": [
+      "The session queue on the PC shows on the phone with Start and Cancel. App-queued follow-ups appear in the same list."
+    ]
+  },
+  {
+    "version": "0.1.37",
+    "date": "2026-09-15",
+    "title": "Cleaner notification icon",
+    "notes": [
+      "Status-bar and notification mark is a simple Grok C with slash. Remote arcs are gone so it reads at small size."
+    ]
+  },
+  {
+    "version": "0.1.36",
+    "date": "2026-09-15",
+    "title": "Notify on PC UAC prompt",
+    "notes": [
+      "The phone gets a notification when Windows shows a UAC administrator prompt on this PC."
+    ]
+  },
+  {
+    "version": "0.1.35",
+    "date": "2026-09-15",
+    "title": "Outside-tap menus, clock and paperclip",
+    "notes": [
+      "/ @ and history menus close when you tap outside. History is a clock; attach is a paperclip."
+    ]
+  },
+  {
+    "version": "0.1.34",
+    "date": "2026-09-15",
+    "title": "Send no longer waits on the whole turn",
+    "notes": [
+      "The phone gets an immediate OK when a message is handed to Grok. The reply still streams live. Failed to fetch no longer kicks off a stuck Connecting state if the PC is still reachable."
+    ]
+  },
+  {
+    "version": "0.1.33",
+    "date": "2026-09-15",
+    "title": "Line mic icon, chat name in header",
+    "notes": [
+      "Mic is a B&W silhouette matching the other tools. In a session the header shows the chat name with connection status underneath."
+    ]
+  },
+  {
+    "version": "0.1.32",
+    "date": "2026-09-15",
+    "title": "Send via gateway, no load hang",
+    "notes": [
+      "Session history loads from disk without waiting on ACP. Sends go through the PC gateway. Grok agent now uses GROK_HOME so it sees the signed-in TUI. Opening a session no longer hangs on Writing after ws closed."
+    ]
+  },
+  {
+    "version": "0.1.31",
+    "date": "2026-09-15",
+    "title": "Skip broken ACP login",
+    "notes": [
+      "Phone no longer calls authenticate with cached_token when Grok only offers grok.com and the PC TUI is already signed in. That was Authentication cancelled / Authentication required."
+    ]
+  },
+  {
+    "version": "0.1.30",
+    "date": "2026-09-15",
+    "title": "Fix Authentication cancelled",
+    "notes": [
+      "Stop the background sidecar from fighting the phone login. Authenticate retries instead of failing on the first cancel."
+    ]
+  },
+  {
+    "version": "0.1.29",
+    "date": "2026-09-14",
+    "title": "Show hidden, pass-complete notify",
+    "notes": [
+      "Show hidden is a full-width button on the session list. Pass-complete notifications fire when a chat finishes, including from disk activity if you are not looking at that session."
+    ]
+  },
+  {
+    "version": "0.1.28",
+    "date": "2026-09-14",
+    "title": "Swipe to hide, star in the row",
+    "notes": [
+      "Hide is a swipe-left action on a session. The star sits on the right inside the card, not as a separate button."
+    ]
+  },
+  {
+    "version": "0.1.27",
+    "date": "2026-09-14",
+    "title": "Pull to refresh, no plan prompt on history",
+    "notes": [
+      "Pull down on the session list to refresh and reconnect. Opening a session no longer pops plan approval from old history; that sheet only appears after a new request, or if you tap Plan."
+    ]
+  },
+  {
+    "version": "0.1.26",
+    "date": "2026-09-14",
+    "title": "Pin, hide, splash versions",
+    "notes": [
+      "Star/pin sessions to the top and hide others from the list (Show hidden to bring them back). Connect splash shows App version and the Grok Build version on this PC."
+    ]
+  },
+  {
+    "version": "0.1.25",
+    "date": "2026-09-14",
+    "title": "Fewer, clearer notifications",
+    "notes": [
+      "Alerts only for approval needed, a real problem, or pass complete, with session context. Status-bar icon is a thicker Grok Remote mark. No ping while you are already looking at that session."
+    ]
+  },
+  {
+    "version": "0.1.24",
+    "date": "2026-09-14",
+    "title": "Fix garbled composer icons",
+    "notes": [
+      "UTF-8 icons and punctuation were corrupted by the last publish. Mic, plus, arrows, and ellipsis are restored."
+    ]
+  },
+  {
+    "version": "0.1.23",
+    "date": "2026-09-14",
+    "title": "Plan green, Auto default",
+    "notes": [
+      "Plan is green; Auto is grey/system and the default. Ask blue, Approve red."
+    ]
+  },
+  {
+    "version": "0.1.22",
+    "date": "2026-09-14",
+    "title": "Bigger prompt, mode colors",
+    "notes": [
+      "Composer tools sit on their own row so the message box is full width.",
+      "Prompt border and text follow mode: Ask blue, Plan magenta, Auto amber, Approve red — toggles under the box."
+    ]
+  },
+  {
+    "version": "0.1.21",
+    "date": "2026-09-14",
+    "title": "Working Android mic",
+    "notes": [
+      "🎤 opens the phone’s speech-to-text dialog (asks for microphone permission) and pastes into the prompt without sending."
+    ]
+  },
+  {
+    "version": "0.1.20",
+    "date": "2026-09-14",
+    "title": "Phone is a plan-approval client",
+    "notes": [
+      "The app no longer authenticates as headless, so Grok can send plan approval to the phone.",
+      "Approve answers x.ai/exit_plan_mode (approved / rejected / abandoned) instead of leaving the RPC unanswered."
+    ]
+  },
+  {
+    "version": "0.1.19",
+    "date": "2026-09-14",
+    "title": "Plan Approve does not hang",
+    "notes": [
+      "Approve closes the plan sheet immediately and answers the permission. It no longer waits on /plan, which deadlocked with Grok still waiting for approval."
+    ]
+  },
+  {
+    "version": "0.1.18",
+    "date": "2026-09-14",
+    "title": "Grok Remote notification icon",
+    "notes": [
+      "Needs-you, turn-complete, and the keep-alive notice use the Grok Remote logo instead of a generic Android icon."
+    ]
+  },
+  {
+    "version": "0.1.17",
+    "date": "2026-09-14",
+    "title": "Voice, camera, find",
+    "notes": [
+      "Mic on the composer dictates into the box and does not send.",
+      "＋ offers Take photo or Photo library (clipboard paste still works).",
+      "⌕ finds text in the thread; ↑ ↓ jumps between hits."
+    ]
+  },
+  {
+    "version": "0.1.16",
+    "date": "2026-09-14",
+    "title": "Phone Approve and /plan actually work",
+    "notes": [
+      "Slash commands like /plan are no longer rewritten to [Grok Remote] /plan.",
+      "Approve sends /plan and waits until plan mode ends instead of only closing the overlay."
+    ]
+  },
+  {
+    "version": "0.1.15",
+    "date": "2026-09-14",
+    "title": "Plan approval on the phone",
+    "notes": [
+      "exit_plan_mode opens a scrollable plan preview instead of silently exiting.",
+      "Approve, Request changes, or Quit — same idea as the PC TUI.",
+      "Tap the Plan chip to reopen the current plan.md."
+    ]
+  },
+  {
+    "version": "0.1.14",
+    "date": "2026-09-14",
+    "title": "Scrollable changelog",
+    "notes": [
+      "Settings and the changelog list scroll with your finger instead of getting cut off."
+    ]
+  },
+  {
+    "version": "0.1.13",
+    "date": "2026-09-14",
+    "title": "Don't yank the thread while thinking",
+    "notes": [
+      "Scrolling up while Grok is working no longer snaps you back to the bottom.",
+      "A ↓ button appears when you're not at the latest; tap it to jump down."
+    ]
+  },
+  {
+    "version": "0.1.12",
+    "date": "2026-09-14",
+    "title": "@ search, last session, copy",
+    "notes": [
+      "@ file picker has search; typing @name in the prompt suggests files.",
+      "The app reopens the last session you were in.",
+      "Copy on each Grok reply copies the markdown."
+    ]
+  },
+  {
+    "version": "0.1.11",
+    "date": "2026-09-14",
+    "title": "@ files, notify actions, biometrics",
+    "notes": [
+      "@ opens a file browser for the session folder and inserts @path into the prompt.",
+      "Needs-you notifications include Open and Allow.",
+      "Fingerprint / face unlock when a PIN is set (installed APK)."
+    ]
+  },
+  {
+    "version": "0.1.10",
+    "date": "2026-09-14",
+    "title": "PIN, blocking permissions, LAN notify",
+    "notes": [
+      "Optional 4–8 digit PIN locks the app when you leave it.",
+      "Permission prompts block the composer until you choose Allow or Reject.",
+      "Needs-you and turn-complete fire local notifications; tapping opens the session.",
+      "A quiet foreground notification keeps the LAN socket alive in the background."
+    ]
+  },
+  {
+    "version": "0.1.9",
+    "date": "2026-09-14",
+    "title": "Usage, todos, slash, roster edit",
+    "notes": [
+      "Usage chip shows context percent; tap for model, tokens, turns.",
+      "Todos chip lists the current plan (tap a group to expand).",
+      "/ compact, rewind, and fork run from the slash palette (with confirm).",
+      "Long-press a session to rename or delete (live PC sessions stay protected)."
+    ]
+  },
+  {
+    "version": "0.1.8",
+    "date": "2026-09-14",
+    "title": "Mode chips, grouped tools, queue, images",
+    "notes": [
+      "Ask / Plan / Auto / Approve, model, and effort chips apply to the live PC session.",
+      "Consecutive reads/searches/edits collapse to “Read 9 files” (tap to expand).",
+      "Send while Grok is working queues a follow-up; Send now interrupts like the TUI.",
+      "＋ attaches a photo; paste from clipboard also works."
+    ]
+  },
+  {
+    "version": "0.1.7",
+    "date": "2026-09-14",
+    "title": "Chat stays put when you swipe",
+    "notes": [
+      "Swiping left or right on the thread no longer slides the whole chat.",
+      "Long tool lines and paths wrap instead of making a phantom page to the right."
+    ]
+  },
+  {
+    "version": "0.1.6",
+    "date": "2026-09-14",
+    "title": "Reply formatting matches Grok Build",
+    "notes": [
+      "Grok replies render as markdown (bold, lists, links) instead of mashed raw text.",
+      "Each reply shows the time and Worked for duration, like the PC card.",
+      "Streaming no longer drops spaces and punctuation."
+    ]
+  },
+  {
+    "version": "0.1.5",
+    "date": "2026-09-14",
+    "title": "Thinking, status timer, command history",
+    "notes": [
+      "Thinking stays expanded with Grok Build formatting (Thought for Xs, paragraph text).",
+      "Live spinner shows Waiting / Thinking / Writing / edit (and the current tool) with a timer, plus Stop.",
+      "Tools stay one-line — no file contents or code scrolling in the thread.",
+      "↑ command history lists PC and App prompts; tapping pastes into the box without sending."
+    ]
+  },
+  {
+    "version": "0.1.4",
+    "date": "2026-09-14",
+    "title": "Live thread + waiting",
+    "notes": [
+      "PC typing and Grok turns stream into the open thread — no close/reopen.",
+      "Send shows Waiting / Thinking immediately so you can tell it went through.",
+      "Thinking stays open as it streams, like Grok Build."
+    ]
+  },
+  {
+    "version": "0.1.3",
+    "date": "2026-09-14",
+    "title": "In-app sessions, full history, working back",
+    "notes": [
+      "APK no longer jumps to the phone browser after Connect — UI stays in the app.",
+      "Opening a session loads the full Grok Build thread (user, Grok, tools, thoughts) from disk, then attaches live.",
+      "Android back and the in-app back button return to the session list instead of leaving the app."
+    ]
+  },
+  {
+    "version": "0.1.2",
+    "date": "2026-09-14",
+    "title": "Send, scroll, icon, honest updates",
+    "notes": [
+      "Sending a message reattaches the session if the socket dropped instead of doing nothing.",
+      "Keepalive every 20s and auto-reconnect without tapping Reconnect.",
+      "Update banner only if the APK version is actually older (0.1.1 no longer nagged itself).",
+      "Thread view locks height and jumps to the latest message like Grok.",
+      "App icon: Grok slash with remote signal flair."
+    ]
+  },
+  {
+    "version": "0.1.1",
+    "date": "2026-09-14",
+    "title": "APK uses the real LAN page",
+    "notes": [
+      "Android WebView no longer iframes the UI (that blocked WebSockets).",
+      "App navigates to the LAN gateway like the working PC browser.",
+      "Cleartext HTTP scheme so LAN fetch is not mixed-content.",
+      "Connect screen probes the LAN first and shows scan errors."
+    ]
+  },
+  {
+    "version": "0.1.0",
+    "date": "2026-09-13",
+    "title": "First LAN remote client",
+    "notes": [
+      "Session roster from live Grok Build ACP (session/list).",
+      "Open a session, replay history, send prompts, stream replies and tool cards.",
+      "Permission prompts, cancel turn, and new session from the phone.",
+      "LAN-only gateway on port 2420; Grok ACP on 2419.",
+      "In-app APK update banner with changelog and download from this server.",
+      "Local notifications when a session needs you (while the app is connected)."
+    ]
+  }
+]

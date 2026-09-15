@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Centered Grok C + slash only. No remote arcs — those blob at status-bar size. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,2.6A9.4,9.4 0,1,1,12,21.4A9.4,9.4 0,1,1,12,2.6zM12,7.2A4.8,4.8 0,1,0,12,16.8A4.8,4.8 0,1,0,12,7.2z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.1,18.4L16.9,4.6l2.6,2L8.7,20.4z" />
+</vector>

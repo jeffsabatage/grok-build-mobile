@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "appId": "com.sabatage.grokremote",
+  "appName": "Grok Remote",
+  "latestVersion": "0.1.40",
+  "minVersion": "0.1.0",
+  "downloadUrl": "/downloads/Grok-Remote.apk",
+  "changelogUrl": "/api/app/changelog",
+  "releaseNotes": "v0.1.40: Collapse Execute and Writes",
+  "forceUpdate": false,
+  "publishedAt": "2026-09-15T04:51:01.934Z"
+}

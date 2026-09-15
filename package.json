@@ -1,0 +1,18 @@
+{
+  "name": "grok-build-mobile",
+  "version": "0.1.40",
+  "private": true,
+  "description": "LAN Android/web client for Grok Build sessions over ACP",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "spike": "node scripts/spike-acp.mjs",
+    "service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-service.ps1 -Action Install",
+    "service:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-service.ps1 -Action Status",
+    "service:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-service.ps1 -Action Restart",
+    "service:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-service.ps1 -Action Uninstall"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}
