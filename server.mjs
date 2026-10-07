@@ -10,9 +10,9 @@ import os from "node:os";
 import crypto from "node:crypto";
 import net from "node:net";
 import { spawn, spawnSync, execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { AcpClient } from "./lib/acp.mjs";
-import { detectLanIp, listLanCandidates } from "./lib/lan.mjs";
+import { detectLanIp, isTrustedLanPeer, listLanCandidates, normalizePeerIp } from "./lib/lan.mjs";
 import { attachAcpProxy } from "./lib/ws-proxy.mjs";
 import { buildHistory, buildMeta, findUpdatesFile, parseUpdateLine, renameSession, deleteSessionDir, readPlanMarkdown, listDiskSessions } from "./lib/history.mjs";
 import { listWorkspace, searchWorkspace } from "./lib/fs-browse.mjs";
@@ -140,8 +140,11 @@ function unauthorized(req, secret) {
   const h =
     req.headers["x-grok-remote-secret"] ||
     (String(req.headers.authorization || "").match(/^Bearer\s+(.+)/i) || [])[1];
-  const got = q || h || "";
-  return got !== secret;
+  const got = String(q || h || "");
+  const a = Buffer.from(got);
+  const b = Buffer.from(String(secret || ""));
+  if (a.length !== b.length) return true;
+  return !crypto.timingSafeEqual(a, b);
 }
 
 async function waitForAcp(timeoutMs = 20_000) {
@@ -505,6 +508,12 @@ function handleApi(req, res, u, secret, lanIp) {
   }
 
   if (u.pathname === "/api/pair") {
+    const peer = req.socket?.remoteAddress || "";
+    if (!isTrustedLanPeer(peer)) {
+      log("pair refused", normalizePeerIp(peer) || "unknown");
+      sendJson(res, 403, { ok: false, error: "pairing is limited to the local network" });
+      return true;
+    }
     sendJson(res, 200, {
       v: 1,
       host: lanIp,
@@ -933,7 +942,17 @@ async function main() {
   process.on("SIGTERM", shutdown);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+function startedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return import.meta.url === pathToFileURL(path.resolve(entry)).href;
+}
+
+if (startedDirectly()) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+export { handleApi };

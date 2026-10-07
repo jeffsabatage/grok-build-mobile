@@ -12,6 +12,12 @@ New-Item -ItemType Directory -Force -Path $resXml | Out-Null
 $nsc = Join-Path $resXml 'network_security_config.xml'
 @'
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext stays on because the phone talks to http://<LAN-IPv4>:2420.
+  Network Security Config cannot express private IP ranges, and domain-config
+  does not apply to raw IP hosts. Do not publish port 2420 beyond the LAN.
+  See SECURITY.md.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
@@ -26,6 +32,10 @@ $txt = Get-Content $manifest -Raw
 $dirty = $false
 if ($txt -notmatch 'android:usesCleartextTraffic') {
   $txt = $txt -replace '<application', '<application android:usesCleartextTraffic="true" android:networkSecurityConfig="@xml/network_security_config"'
+  $dirty = $true
+}
+if ($txt -match 'android:allowBackup="true"') {
+  $txt = $txt -replace 'android:allowBackup="true"', 'android:allowBackup="false"'
   $dirty = $true
 }
 if ($txt -notmatch 'POST_NOTIFICATIONS') {
