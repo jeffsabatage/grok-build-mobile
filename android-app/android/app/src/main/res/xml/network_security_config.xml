@@ -1,4 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext stays on because the phone talks to http://<LAN-IPv4>:2420.
+  Network Security Config cannot express private IP ranges, and domain-config
+  does not apply to raw IP hosts. Do not publish port 2420 beyond the LAN.
+  See SECURITY.md.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
