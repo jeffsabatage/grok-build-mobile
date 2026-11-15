@@ -1,5 +1,597 @@
 [
   {
+    "version": "0.1.114",
+    "date": "2026-11-07",
+    "title": "In-app update download",
+    "notes": [
+      "On launch, a newer app is downloaded from this PC and the install screen opens."
+    ]
+  },
+  {
+    "version": "0.1.113",
+    "date": "2026-11-03",
+    "title": "Continue a chat that is not open",
+    "notes": [
+      "Send from the phone into a saved chat even when that chat is not open on the PC, including when Grok Build is not running. A chat that is already open still goes to that window."
+    ]
+  },
+  {
+    "version": "0.1.112",
+    "date": "2026-10-15",
+    "title": "A notification per running chat",
+    "notes": [
+      "Each chat that is open on the PC gets its own notification. The session name is on top, and the latest line from that chat is underneath. Chats that are closed stay off the shade."
+    ]
+  },
+  {
+    "version": "0.1.111",
+    "date": "2026-09-25",
+    "title": "Tool buttons are back on the message row",
+    "notes": [
+      "Slash, file, history, attach, and the mic sit on the row again, next to Send. More is gone."
+    ]
+  },
+  {
+    "version": "0.1.110",
+    "date": "2026-09-25",
+    "title": "Tap the frame, prompt mark, Plan chip, frame follows the PC, More tools",
+    "notes": [
+      "Tap the session name on the message box to rename it. Tap the model line to change the model or the effort. A > sits at the left of the box and turns gold in plan mode. Chats in plan mode show a gold Plan chip on the home list. The frame updates when the PC changes model, effort, or plan. Slash, file, history, attach, and mic sit behind More."
+    ]
+  },
+  {
+    "version": "0.1.109",
+    "date": "2026-09-23",
+    "title": "Session name and model on the chat frame",
+    "notes": [
+      "The message box shows the session name at the top right and Grok 4.7 (high) at the bottom right. Plan mode adds · plan and turns the frame gold."
+    ]
+  },
+  {
+    "version": "0.1.108",
+    "date": "2026-09-23",
+    "title": "Scroll to the failure, Today, plan on the chip, queue per chat, note on the lock screen",
+    "notes": [
+      "Opening a chat jumps to the latest failed step when there is one. Today hides turns from before midnight, and Show week brings them back. The live chip says Plan is ready or Permission needed and a tap shows that bar. A message queued on the phone stays with that chat. The private note shows on the lock-screen card."
+    ]
+  },
+  {
+    "version": "0.1.107",
+    "date": "2026-09-23",
+    "title": "Open working chat, problems stay open, copy a turn, note on the home row, model on the chip",
+    "notes": [
+      "Opening the app goes to the chat that is running when one is. With Problems on, a turn that failed starts expanded. Long-press a steps line to copy the step names and the reply. The private note shows under that chat on the home list. The live chip starts with the model, such as 4.7 · Evaluate Script."
+    ]
+  },
+  {
+    "version": "0.1.106",
+    "date": "2026-09-23",
+    "title": "One row per turn, live chip, problems, screen awake, private note",
+    "notes": [
+      "Finished work collapses to a line such as 14 steps · 2m, and the reply stays visible. Tap the line to open those diamonds. The current turn stays open. A chip under the header shows the live step and jumps to it. Problems hides steps that succeeded. The screen stays on while a turn is running. A private note on the chat is stored on the phone and is never sent."
+    ]
+  },
+  {
+    "version": "0.1.105",
+    "date": "2026-09-23",
+    "title": "Fold repeats, tool times, open working chat, search diamonds, speak the step",
+    "notes": [
+      "The same tool in a row folds into one diamond, such as Chrome-devtools Evaluate Script × 4. A finished tool shows how long it ran. The home screen has a Working chip that opens the chat that is running. Find in thread matches commands, files, and Chrome tool input. Under Notifications, Speak the step says the short tool name once when it changes."
+    ]
+  },
+  {
+    "version": "0.1.104",
+    "date": "2026-09-23",
+    "title": "Jump to now, quiet view, headset stop, lock-screen queue, copy a diamond",
+    "notes": [
+      "Now scrolls to the live row. Quiet hides the diamond list and leaves your messages and Grok's replies. The headset button stops a running turn and dictates when the chat is idle. If a message is queued, the lock screen shows Send now and Cancel. Long-press a diamond to copy its command, file, or tool input."
+    ]
+  },
+  {
+    "version": "0.1.103",
+    "date": "2026-09-23",
+    "title": "Tighter diamonds and plain English tool names",
+    "notes": [
+      "Stacked diamond rows sit closer together. Chrome and other tools use the same wording as the PC, such as Chrome-devtools Evaluate Script. Reads, searches, and MCP searches group as Read N files, Searched N patterns, Searched N MCP tools. While one of those tools is running, the status line says Run (Chrome-devtools) Evaluate Script."
+    ]
+  },
+  {
+    "version": "0.1.102",
+    "date": "2026-09-23",
+    "title": "Every diamond row expands",
+    "notes": [
+      "Thoughts, Run lines, Task started and completed, Searched, Ran command, and tool rows such as Chrome-devtools each use a diamond. Tap one to open the text, command, or tool input. Finished rows start collapsed."
+    ]
+  },
+  {
+    "version": "0.1.101",
+    "date": "2026-09-22",
+    "title": "Hear the answer, undo send, lock-screen Stop, share a photo, Wi-Fi outbox",
+    "notes": [
+      "After a headset dictation, the finished reply is read aloud. For a few seconds after Send, Undo puts the text back if Grok has not started. The lock screen card has Stop while a turn is running. A photo shared from another app attaches to the open chat. If Wi-Fi drops, the message is kept and sent when the gateway is back."
+    ]
+  },
+  {
+    "version": "0.1.100",
+    "date": "2026-09-22",
+    "title": "PC queue shows Send now, edit, and cancel",
+    "notes": [
+      "A message queued on the PC shows on the phone as #1 with the text. Send now runs it next, edit puts it back in the composer, and cancel drops it."
+    ]
+  },
+  {
+    "version": "0.1.99",
+    "date": "2026-09-22",
+    "title": "Collapsing an edit keeps later edits collapsed",
+    "notes": [
+      "Tap an Edit diamond to collapse it, and the edits that follow stay collapsed too. Tap one open again and the edits after that one open. Edits above the one you tapped stay as they were."
+    ]
+  },
+  {
+    "version": "0.1.98",
+    "date": "2026-09-22",
+    "title": "Lock screen glance and headset dictate",
+    "notes": [
+      "The lock screen shows the chat name, whether it needs you or is working, and the last line. Tap it to open that chat. While Grok Remote is on screen, the headset play button dictates into the open chat. Turn that off under Notifications."
+    ]
+  },
+  {
+    "version": "0.1.97",
+    "date": "2026-09-22",
+    "title": "Last 7 days of chat, pinch to zoom photos",
+    "notes": [
+      "The phone loads only the last 7 days of a chat, so a long session stays fast. Older messages stay on the PC. A photo opens full screen, and a pinch or double-tap zooms it. Drag moves a zoomed photo."
+    ]
+  },
+  {
+    "version": "0.1.96",
+    "date": "2026-09-22",
+    "title": "Task lines, Compacting, remembered diamonds",
+    "notes": [
+      "A background command shows Task started and Task completed with the same description as the PC. Context 80% full. Compacting... shows in the chat, and the status line says Compacting... while that runs. Collapsing or opening an edit, code block, thought, or grouped row stays that way."
+    ]
+  },
+  {
+    "version": "0.1.95",
+    "date": "2026-09-22",
+    "title": "Current thought stays open while edits run",
+    "notes": [
+      "The thought you are in stays expanded under Thinking... with the paragraph visible, including while the status line says Writing edit. After the reply starts it collapses to Thought for, and a tap opens that text."
+    ]
+  },
+  {
+    "version": "0.1.94",
+    "date": "2026-09-22",
+    "title": "Thinking shows the current thoughts",
+    "notes": [
+      "While Grok is thinking, the chat shows Thinking... with the thought text under the diamond. Afterward it collapses to Thought for, and a tap opens that same text. The status line says Writing edit (3)… while edits are in progress."
+    ]
+  },
+  {
+    "version": "0.1.93",
+    "date": "2026-09-22",
+    "title": "Edit diffs and code blocks show the actual lines",
+    "notes": [
+      "File edits show the code with line numbers, red for removed and green for added, under a diamond you can tap to collapse. Code blocks in a reply do the same, with Copy. Empty spacer rows are gone."
+    ]
+  },
+  {
+    "version": "0.1.92",
+    "date": "2026-09-22",
+    "title": "Home search reuses an index",
+    "notes": [
+      "Searching chats reads each session once, then keeps that text in memory. Later keystrokes search the index. A chat is reread only after it changes."
+    ]
+  },
+  {
+    "version": "0.1.91",
+    "date": "2026-09-22",
+    "title": "Empty screens say what to do next",
+    "notes": [
+      "An empty session list, search, folder, command history, or chat now says what happened and offers the next tap, such as Clear search or Start a session."
+    ]
+  },
+  {
+    "version": "0.1.90",
+    "date": "2026-09-22",
+    "title": "Tool rows match the PC diamonds",
+    "notes": [
+      "Thoughts, tasks, and grouped reads use the same collapse diamond as the PC. A command shows Task started and Task completed. A read shows the file and line range. Edits stay the red and green diff."
+    ]
+  },
+  {
+    "version": "0.1.89",
+    "date": "2026-09-22",
+    "title": "Finished tools stay one line until you tap",
+    "notes": [
+      "A finished read, search, or command is one short line. Tap it to see the path or command. Failed rows still have Retry. File edits still show the red and green diff."
+    ]
+  },
+  {
+    "version": "0.1.88",
+    "date": "2026-09-22",
+    "title": "File edits show the red and green diff",
+    "notes": [
+      "An edit on the PC shows in the chat as Edit and the file name, with removed lines in red and added lines in green. Tap the header to collapse it."
+    ]
+  },
+  {
+    "version": "0.1.87",
+    "date": "2026-09-22",
+    "title": "One chat can notify through quiet hours",
+    "notes": [
+      "Long-press a session and choose Follow through quiet hours. That chat still notifies from 11pm to 7am. Other chats stay quiet. Only one chat can be followed."
+    ]
+  },
+  {
+    "version": "0.1.86",
+    "date": "2026-09-22",
+    "title": "Code blocks are visible, collapsible, and copyable",
+    "notes": [
+      "Fenced code in a reply opens as its own block, with the language and line count. Tap the header to collapse it. Copy copies just that block."
+    ]
+  },
+  {
+    "version": "0.1.85",
+    "date": "2026-09-22",
+    "title": "Photos you send show in the chat",
+    "notes": [
+      "A photo you attach shows on your message in the thread. Tap it to see it larger. Close returns to the chat."
+    ]
+  },
+  {
+    "version": "0.1.84",
+    "date": "2026-09-22",
+    "title": "Chats reopen faster, and Send stays above the keyboard",
+    "notes": [
+      "Opening a chat you just left shows the transcript immediately, then catches up. The message box and Send stay above the keyboard."
+    ]
+  },
+  {
+    "version": "0.1.83",
+    "date": "2026-09-22",
+    "title": "Search all chats, mute one session, mark phone messages",
+    "notes": [
+      "Home search also looks inside recent chat text and lists matching sessions. Long-press a session to mute it without quiet hours. Plan and edit prompts still notify. Messages you sent from the phone are marked Phone."
+    ]
+  },
+  {
+    "version": "0.1.82",
+    "date": "2026-09-22",
+    "title": "Read the last reply aloud",
+    "notes": [
+      "Read aloud speaks the latest answer through the phone. Tap it again to stop. Sending or leaving the chat stops it too."
+    ]
+  },
+  {
+    "version": "0.1.81",
+    "date": "2026-09-22",
+    "title": "Retry on a failed tool",
+    "notes": [
+      "A failed command or edit shows Retry on that row. Tap it to ask the PC to run that step again without retyping it."
+    ]
+  },
+  {
+    "version": "0.1.80",
+    "date": "2026-09-22",
+    "title": "Where you left off when you reopen a chat",
+    "notes": [
+      "Reopening a chat you have already read shows Where you left off. Tap it to jump to the first new line. The marker clears once you are back at the bottom."
+    ]
+  },
+  {
+    "version": "0.1.79",
+    "date": "2026-09-22",
+    "title": "Swipe a session to pin, rename, or hide",
+    "notes": [
+      "Swipe a roster row left to reveal Pin, Rename, and Hide. Pin is the first button. Rename opens the name editor. A full swipe no longer hides the session by itself."
+    ]
+  },
+  {
+    "version": "0.1.78",
+    "date": "2026-09-22",
+    "title": "Queue drag ignores the long-press menu; jump buttons step through history",
+    "notes": [
+      "The queue grip no longer loses the press to the phone's long-press menu. Last message and Last error step backward through every match, then wrap."
+    ]
+  },
+  {
+    "version": "0.1.77",
+    "date": "2026-09-22",
+    "title": "Drag queued follow-ups to reorder them",
+    "notes": [
+      "Hold the grip on a queued row and drag it among the other PC or app rows. The PC queue order updates on this computer."
+    ]
+  },
+  {
+    "version": "0.1.76",
+    "date": "2026-09-22",
+    "title": "Suggested next line shows in italics under the reply",
+    "notes": [
+      "After a reply that offers a next step, that suggestion shows in italics at the bottom of the chat. Tap it to put the line in the composer."
+    ]
+  },
+  {
+    "version": "0.1.75",
+    "date": "2026-09-22",
+    "title": "Jump to the last message or the last error",
+    "notes": [
+      "Inside a chat, Last message scrolls to the latest thing you typed. Last error scrolls to the latest failed tool and opens it if it was folded."
+    ]
+  },
+  {
+    "version": "0.1.74",
+    "date": "2026-09-22",
+    "title": "Roster shows how many subagents are running",
+    "notes": [
+      "A chat with child agents shows 1 running or 2 running on its roster row. The count drops when those agents finish."
+    ]
+  },
+  {
+    "version": "0.1.73",
+    "date": "2026-09-22",
+    "title": "Command prompts on the phone, and one notification per real event",
+    "notes": [
+      "Shell commands get the same phone choices as Allow Edit. Pass complete stays quiet while a plan or an edit prompt is still open. The same event does not notify twice."
+    ]
+  },
+  {
+    "version": "0.1.72",
+    "date": "2026-09-22",
+    "title": "Plan choices sit on the chat while a plan is waiting",
+    "notes": [
+      "While the PC is waiting to exit plan mode, the phone shows Approve, Request changes, and Quit on the chat itself instead of only a spinner."
+    ]
+  },
+  {
+    "version": "0.1.71",
+    "date": "2026-09-22",
+    "title": "Allow Edit choices can be answered on the phone",
+    "notes": [
+      "When the PC asks Allow Edit, the phone shows the same four choices: always-approve, allow edits this session, Yes, or No with an optional reason. The choice is sent into that PC window."
+    ]
+  },
+  {
+    "version": "0.1.70",
+    "date": "2026-09-22",
+    "title": "Plan review opens when the PC asks for approval",
+    "notes": [
+      "Starting plan mode no longer leaves the phone sitting on Planning. When the PC asks you to approve the plan, the phone opens it and sends Plan ready."
+    ]
+  },
+  {
+    "version": "0.1.69",
+    "date": "2026-09-22",
+    "title": "Weekly usage bar stays on the home screen",
+    "notes": [
+      "The SuperGrok weekly bar stays pinned under the session list instead of scrolling away with it. The percent in the title bar is the same meter."
+    ]
+  },
+  {
+    "version": "0.1.68",
+    "date": "2026-09-22",
+    "title": "Plan review on the phone, and Landed on PC when a send arrives",
+    "notes": [
+      "When this PC is waiting on a plan, the phone opens the plan and notifies Plan ready. Approve, Revise, and Quit are sent into that window. Pass complete waits until the plan is no longer waiting. A send notifies Landed on PC only after it is in the session, or says Queued on PC if the window is busy."
+    ]
+  },
+  {
+    "version": "0.1.67",
+    "date": "2026-09-22",
+    "title": "Usage shows this session’s context window",
+    "notes": [
+      "Tap Usage in a chat to see this session’s window: system, tools, messages, and free space. That is separate from the weekly SuperGrok bar on the home screen."
+    ]
+  },
+  {
+    "version": "0.1.66",
+    "date": "2026-09-21",
+    "title": "Model picker includes Grok 4.7 and 4.7 Fast",
+    "notes": [
+      "The model list now offers grok-4.7 (the PC default) and grok-4.7-build-fast. Fast is the same model on faster hardware, billed at twice the token rate."
+    ]
+  },
+  {
+    "version": "0.1.65",
+    "date": "2026-09-19",
+    "title": "Pass complete waits until the turn actually finishes",
+    "notes": [
+      "A pause while Grok is thinking or running a tool no longer fires Pass complete. That notification waits until the turn recap is written."
+    ]
+  },
+  {
+    "version": "0.1.64",
+    "date": "2026-09-19",
+    "title": "Needs you only when Grok is actually waiting on you",
+    "notes": [
+      "The Needs you filter is hidden unless a session is waiting for a decision. An open PC session is labeled On PC, not Needs you."
+    ]
+  },
+  {
+    "version": "0.1.63",
+    "date": "2026-09-18",
+    "title": "Home-screen widget, quiet hours, reply from a notification",
+    "notes": [
+      "Add a Grok Remote widget to the home screen for the live session, working vs needs-you, and the last line. Tap it to open that chat. Quiet hours (11pm–7am) skip pass-complete banners; approvals still notify. Reply on a notification sends into that session."
+    ]
+  },
+  {
+    "version": "0.1.62",
+    "date": "2026-09-18",
+    "title": "Phone send types into this PC window",
+    "notes": [
+      "A send from the phone is typed into the live Grok window on this PC. It no longer starts a second hidden Grok on the same session, which is why Test test answered on the phone but did not appear here."
+    ]
+  },
+  {
+    "version": "0.1.61",
+    "date": "2026-09-17",
+    "title": "Phone turns finish without reopening the PC",
+    "notes": [
+      "A send from the phone no longer opens a second Grok on the same session, which was killing the turn before it finished. The app now follows the live session log until the reply completes, and shows Queued on PC when this desktop turn is still running."
+    ]
+  },
+  {
+    "version": "0.1.60",
+    "date": "2026-09-17",
+    "title": "Weekly usage on the home screen",
+    "notes": [
+      "Title bar shows your live SuperGrok weekly used percent. The home screen has the same product bar as grok.com Settings → Usage (Build / Chat / Imagine / API / Voice) plus the reset time."
+    ]
+  },
+  {
+    "version": "0.1.59",
+    "date": "2026-09-17",
+    "title": "Phone send survives a closed WebSocket",
+    "notes": [
+      "Send from the phone uses HTTP on the PC and landed in this live session while Grok was already working. The ACP bridge stays up instead of crashing on health probes."
+    ]
+  },
+  {
+    "version": "0.1.58",
+    "date": "2026-09-17",
+    "title": "Phone WebSocket send stays open",
+    "notes": [
+      "The ACP socket no longer closes on send. A WebSocket e2e send of [Grok Remote] e2e ws landed in this live session."
+    ]
+  },
+  {
+    "version": "0.1.57",
+    "date": "2026-09-17",
+    "title": "Restore phone send into the live TUI",
+    "notes": [
+      "Phone sends use Grok agent stdio resume of the open session, which this PC already proved by injecting a [Grok Remote] line into the live thread."
+    ]
+  },
+  {
+    "version": "0.1.56",
+    "date": "2026-09-17",
+    "title": "Stop hanging sends; require PC echo",
+    "notes": [
+      "A phone send no longer waits forever. If the live PC session does not actually take the message, the app reports that instead of spinning."
+    ]
+  },
+  {
+    "version": "0.1.55",
+    "date": "2026-09-16",
+    "title": "Phone send types into the live TUI",
+    "notes": [
+      "A send from the phone is typed into the live PC Grok window (same session PID), so it shows on screen like you typed it."
+    ]
+  },
+  {
+    "version": "0.1.54",
+    "date": "2026-09-16",
+    "title": "Fix send WebSocket closed",
+    "notes": [
+      "Phone send no longer kills grok by passing a Windows named pipe as a file. The user ACP bridge stays up so messages can join the live TUI."
+    ]
+  },
+  {
+    "version": "0.1.53",
+    "date": "2026-09-16",
+    "title": "Join the live TUI leader for phone sends",
+    "notes": [
+      "Phone sends now attach to the PC's live Grok leader (user ACP bridge + named pipe). Messages should show in the TUI thread, not a hidden copy of the session."
+    ]
+  },
+  {
+    "version": "0.1.52",
+    "date": "2026-09-16",
+    "title": "Phone sends show on the PC",
+    "notes": [
+      "Messages sent from the phone go through the live TUI session so they appear on the PC, not a side connection. PC and app turns stay bidirectional."
+    ]
+  },
+  {
+    "version": "0.1.51",
+    "date": "2026-09-16",
+    "title": "Edit permission card on the phone",
+    "notes": [
+      "When Grok asks Allow Edit (or a command), the phone shows the same choices as the PC: always-approve, allow all edits this session, Yes, or No with optional feedback. The card is not swallowed while history loads."
+    ]
+  },
+  {
+    "version": "0.1.50",
+    "date": "2026-09-16",
+    "title": "Working strip, drafts, status glance",
+    "notes": [
+      "Roster shows a strip of sessions that are working or need you. Composer drafts survive leaving a chat. The silent status-bar line shows how many need you vs working."
+    ]
+  },
+  {
+    "version": "0.1.49",
+    "date": "2026-09-16",
+    "title": "Roster long-press menu on the list",
+    "notes": [
+      "Hold a session on the roster and the options sheet now appears there. It no longer waits until you open the chat. Tap outside or Cancel to dismiss; the hold no longer opens the session."
+    ]
+  },
+  {
+    "version": "0.1.48",
+    "date": "2026-09-16",
+    "title": "Long-press rename and session actions",
+    "notes": [
+      "Hold a session in the roster to rename it (that press no longer cancels if your finger moves a little). Same menu: pin, hide, fork, session info, copy name, stop if running, delete. Auto title is on the rename sheet."
+    ]
+  },
+  {
+    "version": "0.1.47",
+    "date": "2026-09-16",
+    "title": "No leftover notifications on open",
+    "notes": [
+      "Opening the app after it was closed clears old approval/done banners and does not replay leftover events. Only notifications that happen after launch are shown."
+    ]
+  },
+  {
+    "version": "0.1.46",
+    "date": "2026-09-16",
+    "title": "Restart gateway without UAC",
+    "notes": [
+      "I can bounce the LAN gateway myself: POST /api/admin/restart with the pairing secret, or the GrokRemoteRestart scheduled task. No UAC prompt after the one-time register."
+    ]
+  },
+  {
+    "version": "0.1.45",
+    "date": "2026-09-16",
+    "title": "Bulletproof gateway, memory, reconnect",
+    "notes": [
+      "Gateway survives crashes: node restart loop, 1-minute health watchdog, ACP retries, and it no longer dies on uncaught errors. The phone reconnects with backoff when Wi-Fi or the PC drops. Permission sheets label Always/Never allow. Memory is GA: /remember, /memory, /flush, /recap."
+    ]
+  },
+  {
+    "version": "0.1.44",
+    "date": "2026-09-15",
+    "title": "Notify Open Allow Stop, Needs you",
+    "notes": [
+      "Approval notifications have Open, Allow, and Stop, and vibrate. Needs-you sessions sort first; the roster has a Needs you filter. Search matches name, last turn, folder, and id."
+    ]
+  },
+  {
+    "version": "0.1.43",
+    "date": "2026-09-15",
+    "title": "Fork, share, session info",
+    "notes": [
+      "Fork confirms then opens the new session. /export and long-press Share send the last reply or whole thread. Session info shows prompts, compactions, duration, and tools used."
+    ]
+  },
+  {
+    "version": "0.1.42",
+    "date": "2026-09-15",
+    "title": "Rewind, compact, long-press",
+    "notes": [
+      "Rewind opens a turn picker. Usage at 80%+ offers Compact with an optional keep-note. Long-press a reply to Copy, Quote, or Retry. Multiple-choice questions from Grok show as a sheet."
+    ]
+  },
+  {
+    "version": "0.1.41",
+    "date": "2026-09-15",
+    "title": "Mobile commands in history",
+    "notes": [
+      "Clock / recent-commands list includes prompts sent from the phone, tagged App. Those prompts are also written to Grok Build command history so they show on the PC too."
+    ]
+  },
+  {
     "version": "0.1.40",
     "date": "2026-09-15",
     "title": "Collapse Execute and Writes",

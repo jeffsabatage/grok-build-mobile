@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -22,6 +23,37 @@ import java.util.Locale;
     permissions = { @Permission(alias = "speech", strings = { Manifest.permission.RECORD_AUDIO }) }
 )
 public class SpeechPlugin extends Plugin {
+    private TextToSpeech tts;
+
+    @PluginMethod
+    public void speak(PluginCall call) {
+        String text = call.getString("text", "");
+        if (text == null || text.trim().isEmpty()) {
+            call.reject("empty");
+            return;
+        }
+        final String spoken = text.length() > 4000 ? text.substring(0, 4000) : text;
+        if (tts == null) {
+            tts = new TextToSpeech(getContext(), status -> {
+                if (status != TextToSpeech.SUCCESS || tts == null) {
+                    call.reject("no speech");
+                    return;
+                }
+                tts.setLanguage(Locale.getDefault());
+                tts.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, "grok-reply");
+                call.resolve();
+            });
+            return;
+        }
+        tts.speak(spoken, TextToSpeech.QUEUE_FLUSH, null, "grok-reply");
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stop(PluginCall call) {
+        if (tts != null) tts.stop();
+        call.resolve();
+    }
 
     @PluginMethod
     public void start(PluginCall call) {

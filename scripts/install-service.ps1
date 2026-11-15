@@ -67,8 +67,9 @@ function Get-Nssm {
 
 function Install-Task {
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-  $arg = "-NoProfile -ExecutionPolicy Bypass -File `"$pwsh`""
-  $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arg -WorkingDirectory $root
+  $vbs = Join-Path $root 'scripts\run-hidden-ps.vbs'
+  $arg = "//B //Nologo `"$vbs`" `"$pwsh`""
+  $action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\wscript.exe' -Argument $arg -WorkingDirectory $root
   $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
   $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
@@ -90,6 +91,35 @@ function Install-Task {
     -Description 'Grok Remote LAN gateway (:2420). Independent of Grok Build.' |
     Out-Null
   Write-Host "Scheduled task '$taskName' installed (at logon, restart on crash)."
+}
+
+function Install-WatchdogTask {
+  $watch = Join-Path $root 'scripts\watch-gateway.ps1'
+  Unregister-ScheduledTask -TaskName 'GrokRemoteWatch' -Confirm:$false -ErrorAction SilentlyContinue
+  $vbs = Join-Path $root 'scripts\run-hidden-ps.vbs'
+  $arg = "//B //Nologo `"$vbs`" `"$watch`""
+  $action = New-ScheduledTaskAction -Execute 'C:\Windows\System32\wscript.exe' -Argument $arg -WorkingDirectory $root
+  $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+  $settings = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -StartWhenAvailable `
+    -MultipleInstances IgnoreNew
+  try { $settings.ExecutionTimeLimit = 'PT2M' } catch { }
+  $once = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1))
+  try {
+    $once.Repetition.Interval = 'PT1M'
+    $once.Repetition.Duration = 'P9999D'
+  } catch { }
+  $logon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  Register-ScheduledTask -TaskName 'GrokRemoteWatch' `
+    -Action $action `
+    -Trigger @($logon, $once) `
+    -Principal $principal `
+    -Settings $settings `
+    -Description 'If Grok Remote :2420 is down, start the service or logon task.' |
+    Out-Null
+  Write-Host "Watchdog task 'GrokRemoteWatch' installed (every 1 min + at logon)."
 }
 
 function Start-TaskNow {
@@ -180,6 +210,7 @@ switch ($Action) {
       $log = Join-Path $root 'logs\service-install.log'
       try {
         Install-NssmService
+        Install-WatchdogTask
         Wait-Health
         'OK' | Set-Content $log
         Write-Host "Grok Remote is in services.msc as 'Grok Remote LAN Gateway' (GrokRemote)."
@@ -190,6 +221,7 @@ switch ($Action) {
     } else {
       Stop-PortListeners -Port 2420
       Install-Task
+      Install-WatchdogTask
       Start-TaskNow
       Wait-Health
       Write-Host "Grok Remote is running as logon task '$taskName' (not services.msc). Use -AsNssm for a real service."
@@ -198,6 +230,7 @@ switch ($Action) {
   'Uninstall' {
     Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName 'GrokRemoteWatch' -Confirm:$false -ErrorAction SilentlyContinue
     $nssm = Get-Nssm
     if ($nssm) {
       & $nssm stop $svcName 2>$null | Out-Null

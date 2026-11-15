@@ -4,4 +4,5 @@
     <string name="title_activity_main">Grok Remote</string>
     <string name="package_name">com.sabatage.grokremote</string>
     <string name="custom_url_scheme">com.sabatage.grokremote</string>
+    <string name="widget_description">Session name, working or needs you, and the last line. Tap to open that chat.</string>
 </resources>

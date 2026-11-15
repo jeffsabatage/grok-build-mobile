@@ -1,6 +1,6 @@
 {
   "name": "grok-remote-android",
-  "version": "0.1.40",
+  "version": "0.1.114",
   "private": true,
   "description": "Grok Remote Capacitor shell — LAN discovery, APK updates, local notifications",
   "scripts": {

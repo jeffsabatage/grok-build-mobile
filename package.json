@@ -1,6 +1,6 @@
 {
   "name": "grok-build-mobile",
-  "version": "0.1.40",
+  "version": "0.1.114",
   "private": true,
   "description": "LAN Android/web client for Grok Build sessions over ACP",
   "type": "module",

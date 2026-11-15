@@ -8,7 +8,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Grok Remote</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=20260914ao" />
+  <link rel="stylesheet" href="styles.css?v=20261103a" />
 </head>
 <body>
   <div id="connectOverlay" class="overlay splash hidden">
@@ -41,6 +41,7 @@
         <div id="brandTitle" class="brand">Grok Remote</div>
         <div id="subTitle" class="sub">Connecting…</div>
       </div>
+      <button id="acctUsageBtn" class="usage-pill hidden" type="button" title="Weekly SuperGrok usage" aria-label="Weekly usage">—</button>
       <button id="btnFind" class="icon-btn hidden" type="button" title="Find in thread">⌕</button>
       <button id="btnNew" class="icon-btn" type="button" title="New session">＋</button>
       <button id="btnSettings" class="icon-btn" type="button" title="Settings">⚙</button>
@@ -61,15 +62,31 @@
     <main id="rosterView" class="view">
       <div id="ptr" class="ptr" aria-hidden="true">Pull to refresh</div>
       <div class="search-row">
-        <input id="search" type="search" placeholder="Search sessions" autocomplete="off" />
+        <input id="search" type="search" placeholder="Search sessions and messages" autocomplete="off" />
       </div>
       <div class="roster-tools">
+        <button id="btnNeedsOnly" class="ghost" type="button">Needs you</button>
         <button id="btnShowHidden" class="ghost hidden" type="button">Show hidden</button>
       </div>
+      <div id="workStrip" class="work-strip hidden"></div>
+      <div id="msgHits" class="msg-hits hidden"></div>
       <div id="roster" class="roster"></div>
+      <div id="usageCard" class="usage-card hidden"></div>
     </main>
 
     <main id="threadView" class="view hidden">
+      <div class="jump-row">
+        <button id="btnNow" class="ghost" type="button">Now</button>
+        <button id="btnQuiet" class="ghost" type="button">Quiet</button>
+        <button id="btnProblems" class="ghost" type="button">Problems</button>
+        <button id="btnToday" class="ghost" type="button">Today</button>
+        <button id="btnJumpUser" class="ghost" type="button">Last message</button>
+        <button id="btnJumpErr" class="ghost" type="button">Last error</button>
+        <button id="btnRead" class="ghost" type="button">Read aloud</button>
+      </div>
+      <button id="liveChip" class="live-chip hidden" type="button"></button>
+      <input id="chatNote" class="chat-note" type="text" maxlength="200" placeholder="Private note, not sent" autocomplete="off" />
+      <button id="btnCatchUp" class="catchup-jump hidden" type="button">Where you left off</button>
       <div id="findBar" class="find-bar hidden">
         <input id="findQ" type="search" placeholder="Find in thread…" />
         <span id="findCount" class="find-count"></span>
@@ -79,6 +96,14 @@
       </div>
       <div id="thread" class="thread"></div>
       <button id="btnJump" class="jump-btn hidden" type="button" aria-label="Jump to bottom">↓</button>
+      <div id="planBar" class="plan-bar hidden">
+        <p>Plan is ready</p>
+        <div class="plan-actions">
+          <button id="planBarApprove" class="primary" type="button">Approve</button>
+          <button id="planBarRevise" class="ghost" type="button">Request changes</button>
+          <button id="planBarQuit" class="ghost" type="button">Quit</button>
+        </div>
+      </div>
       <div id="permBox" class="perm hidden"></div>
       <div id="turnStatus" class="turn-status hidden" aria-live="polite">
         <span class="spin" aria-hidden="true"></span>
@@ -87,10 +112,21 @@
         <button id="btnStop" type="button" class="ghost">Stop</button>
       </div>
       <div id="queueBox" class="queue hidden"></div>
+      <div id="undoBar" class="undo-bar hidden">
+        <span>Sent</span>
+        <button id="btnUndo" type="button">Undo</button>
+      </div>
       <div id="attachRow" class="attach-row hidden"></div>
       <div class="composer-wrap" id="composerWrap" data-mode="auto">
         <form id="composer" class="composer">
-          <textarea id="prompt" rows="3" placeholder="Message Grok…"></textarea>
+          <div class="composer-box">
+            <span class="prompt-mark" aria-hidden="true">&gt;</span>
+            <textarea id="prompt" rows="3" placeholder="Message Grok…"></textarea>
+            <div class="frame-meta">
+              <button id="frameTitle" class="frame-title" type="button"></button>
+              <button id="frameModel" class="frame-model" type="button"></button>
+            </div>
+          </div>
           <div class="composer-tools">
             <button id="btnSlash" type="button" class="icon-btn" title="Commands">/</button>
             <button id="btnAt" type="button" class="icon-btn" title="Insert @file" aria-label="Insert file">@</button>
@@ -136,13 +172,6 @@
       <div id="slashList" class="slash hidden"></div>
       <div id="atList" class="slash hidden"></div>
       <div id="histList" class="slash hist hidden"></div>
-      <div id="sheet" class="sheet hidden">
-        <div class="sheet-card">
-          <h3 id="sheetTitle">Choose</h3>
-          <div id="sheetOpts" class="sheet-opts"></div>
-          <button id="sheetCancel" class="ghost" type="button">Cancel</button>
-        </div>
-      </div>
       <div id="planSheet" class="plan-sheet hidden">
         <div class="plan-card">
           <div class="plan-head">
@@ -179,6 +208,9 @@
         <h2>Notifications</h2>
         <label class="toggle"><input id="notifyNeeds" type="checkbox" checked /> Approvals and problems</label>
         <label class="toggle"><input id="notifyDone" type="checkbox" checked /> Pass complete</label>
+        <label class="toggle"><input id="quietHours" type="checkbox" checked /> Quiet hours 11pm–7am (approvals still notify)</label>
+        <label class="toggle"><input id="headsetDictate" type="checkbox" checked /> Headset button dictates while this app is open</label>
+        <label class="toggle"><input id="speakSteps" type="checkbox" /> Speak the step name when the tool changes</label>
         <button id="btnEnableNotif" class="ghost" type="button">Enable notifications</button>
       </section>
       <section class="card">
@@ -204,9 +236,23 @@
         <button id="btnStartSession" class="primary" type="button">Start</button>
       </section>
     </main>
+
+    <div id="photoView" class="photo-view hidden" role="dialog" aria-modal="true" aria-label="Photo">
+      <button id="photoViewClose" type="button" class="photo-close">Close</button>
+      <div id="photoStage" class="photo-stage">
+        <img id="photoViewImg" alt="" draggable="false">
+      </div>
+    </div>
+    <div id="sheet" class="sheet hidden">
+      <div class="sheet-card">
+        <h3 id="sheetTitle">Choose</h3>
+        <div id="sheetOpts" class="sheet-opts"></div>
+        <button id="sheetCancel" class="ghost" type="button">Cancel</button>
+      </div>
+    </div>
   </div>
-  <script>window.GROK_REMOTE_VERSION = "0.1.40";</script>
-  <script src="app.js?v=20260914ap"></script>
+  <script>window.GROK_REMOTE_VERSION = "0.1.114";</script>
+  <script src="app.js?v=20261103b"></script>
 </body>
 </html>
 

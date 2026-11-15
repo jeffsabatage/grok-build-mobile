@@ -11,11 +11,12 @@ import crypto from "node:crypto";
 import net from "node:net";
 import { spawn, spawnSync, execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { AcpClient } from "./lib/acp.mjs";
+import { AcpClient, extractSessionId } from "./lib/acp.mjs";
 import { detectLanIp, listLanCandidates } from "./lib/lan.mjs";
 import { attachAcpProxy } from "./lib/ws-proxy.mjs";
-import { buildHistory, buildMeta, findUpdatesFile, parseUpdateLine, renameSession, deleteSessionDir, readPlanMarkdown, listDiskSessions } from "./lib/history.mjs";
+import { buildHistory, buildMeta, findUpdatesFile, parseUpdateLine, renameSession, deleteSessionDir, readPlanMarkdown, readPlanState, listDiskSessions, appendPromptHistory, listRewindPoints, historyContainsPrompt, searchSessionText } from "./lib/history.mjs";
 import { listWorkspace, searchWorkspace } from "./lib/fs-browse.mjs";
+import { kickAcpBridge, bridgeHealthy, ACP_BRIDGE_HTTP_PORT, isLocalSystem, liveSessionAlive } from "./lib/leader.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -32,6 +33,7 @@ const HTTP_PORT = Number(process.env.GROK_REMOTE_HTTP_PORT || 2420);
 const ACP_PORT = Number(process.env.GROK_REMOTE_ACP_PORT || 2419);
 const DEFAULT_CWD = process.env.GROK_REMOTE_CWD || process.cwd();
 const BIND_HOST = process.env.GROK_REMOTE_BIND || "0.0.0.0";
+const STARTED_AT = Date.now();
 
 function readGrokBuildVersion() {
   try {
@@ -144,6 +146,69 @@ function unauthorized(req, secret) {
   return got !== secret;
 }
 
+function getBridgeUsage(force, timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    const reqPath = "/usage" + (force ? "?force=1" : "");
+    const req = http.get(
+      { host: "127.0.0.1", port: ACP_BRIDGE_HTTP_PORT, path: reqPath, timeout: timeoutMs },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf8");
+          try {
+            resolve(JSON.parse(raw));
+          } catch {
+            reject(new Error("usage bad json"));
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("usage timeout"));
+    });
+  });
+}
+
+async function loadAccountUsageApi(force) {
+  const failOpen = (err) => ({
+    ok: false,
+    error: String(err?.message || err || "usage unavailable")
+      .replace(/Bearer\s+\S+/gi, "Bearer ***")
+      .slice(0, 200),
+  });
+  const localFallback = async () => {
+    if (isLocalSystem()) return failOpen("bridge unavailable");
+    const authFile = path.join(GROK_HOME, "auth.json");
+    try {
+      fs.accessSync(authFile, fs.constants.R_OK);
+    } catch {
+      return failOpen("bridge unavailable");
+    }
+    const { fetchAccountUsage } = await import("./lib/account-usage.mjs");
+    return fetchAccountUsage({ force: true });
+  };
+  try {
+    return await getBridgeUsage(force);
+  } catch (err) {
+    log("account usage bridge fail", err.code || err.message);
+    kickAcpBridge();
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      return await getBridgeUsage(force);
+    } catch (err2) {
+      log("account usage bridge retry fail", err2.code || err2.message);
+      try {
+        return await localFallback();
+      } catch (err3) {
+        return failOpen(err3.message || err2.message);
+      }
+    }
+  }
+}
+
 async function waitForAcp(timeoutMs = 20_000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -186,6 +251,7 @@ const state = {
   lastNotify: {},
   pcQueue: {},
   gatewayAcpSession: "",
+  bridgeUp: false,
 };
 
 function isNeedsYouActivity(activity) {
@@ -219,6 +285,9 @@ function normalizeSession(s) {
     modelId: s.modelId || s.current_model_id || null,
     reasoningEffort: s.reasoningEffort || null,
     lastTurnSummary: s.lastTurnSummary || s.last_turn_summary || "",
+    lastTurnSummaryPromptId: s.lastTurnSummaryPromptId || s.last_turn_summary_prompt_id || "",
+    lastCaption: s.lastCaption || "",
+    subagents: s.subagents && Number(s.subagents.running) > 0 ? s.subagents : { running: 0, names: [] },
     yolo: !!s.yolo,
     origin: s.origin || null,
   };
@@ -240,6 +309,7 @@ async function refreshRoster() {
             ...s,
             title: s.title && s.title !== "Untitled" ? s.title : prev.title || s.title,
             lastTurnSummary: s.lastTurnSummary || prev.lastTurnSummary || "",
+            lastCaption: s.lastCaption || prev.lastCaption || "",
           });
         }
       } catch (err) {
@@ -249,13 +319,20 @@ async function refreshRoster() {
     const sessions = [...byId.values()];
     sessions.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
     const prev = new Map(state.sessions.map((s) => [s.sessionId, s]));
+    const firstPass = !state.rosterPrimed;
+    if (!state.turnPromptId) state.turnPromptId = {};
     state.sessions = sessions;
     state.lastRosterAt = Date.now();
+    state.rosterPrimed = true;
     for (const s of sessions) {
+      if (headless.has(s.sessionId) && liveSessionAlive(s.sessionId)) closeHeadless(s.sessionId);
       const old = prev.get(s.sessionId);
+      const recapId = String(s.lastTurnSummaryPromptId || s.lastTurnSummary || "").trim();
+      const prevRecap = state.turnPromptId[s.sessionId] || "";
+      if (recapId) state.turnPromptId[s.sessionId] = recapId;
       const key = `${s.sessionId}:${s.activity}`;
-      if (old && old.activity === s.activity) continue;
-      if (isNeedsYouActivity(s.activity)) {
+      if (firstPass || !old) continue;
+      if (isNeedsYouActivity(s.activity) && !isNeedsYouActivity(old.activity)) {
         if (state.lastNotify[key] && Date.now() - state.lastNotify[key] < 20_000) continue;
         state.lastNotify[key] = Date.now();
         broadcast({
@@ -264,12 +341,31 @@ async function refreshRoster() {
           title: s.title,
           activity: s.activity,
           summary: s.lastTurnSummary,
+          at: Date.now(),
         });
-      } else if (
-        old &&
-        /work|runn?ing|busy/i.test(old.activity) &&
-        !/work|runn?ing|busy/i.test(s.activity || "")
-      ) {
+      }
+      const plan = readPlanState(s.sessionId);
+      if (!state.planAwait) state.planAwait = {};
+      const wasAwaiting = !!state.planAwait[s.sessionId];
+      state.planAwait[s.sessionId] = !!plan.awaiting;
+      if (!firstPass && plan.awaiting && !wasAwaiting) {
+        broadcast({
+          type: "plan_ready",
+          sessionId: s.sessionId,
+          title: s.title,
+          summary: plan.hasPlan ? "Review the plan to continue" : "No plan written yet — review to continue",
+          at: Date.now(),
+        });
+      } else if (!firstPass && wasAwaiting && !plan.awaiting) {
+        broadcast({
+          type: "plan_cleared",
+          sessionId: s.sessionId,
+          title: s.title,
+          at: Date.now(),
+        });
+      }
+      const permOpen = state.permOpen?.has(s.sessionId);
+      if (recapId && prevRecap && recapId !== prevRecap && !plan.awaiting && !permOpen) {
         const doneKey = `${s.sessionId}:done`;
         if (state.lastNotify[doneKey] && Date.now() - state.lastNotify[doneKey] < 30_000) continue;
         state.lastNotify[doneKey] = Date.now();
@@ -279,6 +375,7 @@ async function refreshRoster() {
           title: s.title,
           activity: s.activity,
           summary: s.lastTurnSummary,
+          at: Date.now(),
         });
       }
     }
@@ -329,6 +426,16 @@ function startUacWatch() {
   void tick();
 }
 
+function queueEntryText(e) {
+  if (!e || typeof e !== "object") return "";
+  if (typeof e.text === "string" && e.text.trim()) return e.text;
+  if (typeof e.prompt === "string") return e.prompt;
+  const blocks = Array.isArray(e.prompt) ? e.prompt : Array.isArray(e.content) ? e.content : null;
+  if (blocks) {
+    return blocks.map((p) => (typeof p === "string" ? p : p?.text || p?.content || "")).join("");
+  }
+  return String(e.caption || e.message || "");
+}
 function parseQueueChanged(params) {
   const p = params && typeof params === "object" ? params : {};
   const sessionId = String(p.sessionId || p.session_id || state.gatewayAcpSession || "");
@@ -339,13 +446,14 @@ function parseQueueChanged(params) {
     .map((e, i) => {
       if (e == null) return null;
       if (typeof e === "string") return { id: String(i), text: e, source: "pc", index: i };
-      const text = String(e.text || e.prompt || e.content || e.caption || e.message || "");
+      const text = queueEntryText(e);
       const id = String(e.id || e.entryId || e.entry_id || e.promptId || e.prompt_id || i);
+      const index = e.position != null ? Number(e.position) : e.index != null ? Number(e.index) : i;
       return {
         id,
         text,
         source: /app|remote/i.test(String(e.source || "")) ? "app" : "pc",
-        index: e.index != null ? Number(e.index) : i,
+        index,
         running: !!(e.running || e.status === "running"),
       };
     })
@@ -359,7 +467,280 @@ function applyQueueNotification(params) {
   state.pcQueue[sid] = q.entries;
   broadcast({ type: "queue_changed", sessionId: sid, entries: q.entries });
 }
+const headless = new Map();
+const headlessOpen = new Map();
+
+function sessionCwd(sessionId) {
+  const row = state.sessions.find((s) => s.sessionId === sessionId);
+  const cwd = row?.cwd && String(row.cwd).trim();
+  return cwd || DEFAULT_CWD;
+}
+
+function closeHeadless(sessionId) {
+  const slot = headless.get(sessionId);
+  if (!slot) return;
+  headless.delete(sessionId);
+  if (slot.idle) clearTimeout(slot.idle);
+  const err = new Error("headless closed");
+  const perm = slot.pendingPerm;
+  const plan = slot.pendingPlan;
+  slot.pendingPerm = null;
+  slot.pendingPlan = null;
+  try { perm?.reject(err); } catch { /* ignore */ }
+  try { plan?.reject(err); } catch { /* ignore */ }
+  try { slot.client?.close(); } catch { /* ignore */ }
+}
+
+function scheduleHeadlessIdle(sessionId) {
+  const slot = headless.get(sessionId);
+  if (!slot) return;
+  if (slot.idle) clearTimeout(slot.idle);
+  slot.idle = setTimeout(() => {
+    const cur = headless.get(sessionId);
+    if (!cur || cur.pendingPerm || cur.pendingPlan) return;
+    log("headless idle", sessionId.slice(0, 8));
+    closeHeadless(sessionId);
+  }, 10 * 60 * 1000);
+}
+
+function headlessOptionId(key, options, kind) {
+  const list = Array.isArray(options) ? options : [];
+  const idOf = (o) => String(o?.optionId || o?.id || "");
+  const find = (re) => {
+    const hit = list.find((o) => re.test(idOf(o)));
+    return hit ? hit.optionId || hit.id : "";
+  };
+  if (key === "1") return find(/allow_always/i) || "allow_always";
+  if (key === "2") {
+    if (kind === "command") return find(/allow_bash|bash/i) || find(/allow_edits|edits/i) || "allow_bash";
+    return find(/allow_edits|edits/i) || find(/allow_bash|bash/i) || "allow_edits_for_session";
+  }
+  if (key === "3") return find(/allow_once/i) || "allow_once";
+  return find(/reject_once/i) || find(/reject|deny/i) || "reject_once";
+}
+
+function isHeadlessPlan(method, params) {
+  if (/exit_plan_mode/i.test(method || "")) return true;
+  const tool = params?.toolCall || {};
+  const name = [tool.title, tool.kind, tool.name, params?.title].filter(Boolean).join(" ");
+  return /exit[_\s-]*plan|exit_plan/i.test(name);
+}
+
+function armPermCard(sessionId, params) {
+  const tool = params?.toolCall || {};
+  const toolCallId = String(tool.toolCallId || params?.toolCallId || ("perm-" + Date.now()));
+  const input = tool.rawInput || {};
+  const pathName = String(input.path || input.file_path || input.target_file || "").trim();
+  const command = String(input.command || input.cmd || "").trim();
+  const kind = command || /bash|shell|terminal|command/i.test(String(tool.title || tool.kind || "")) ? "command" : "edit";
+  if (!state.permWait) state.permWait = new Map();
+  if (state.permWait.has(toolCallId)) {
+    clearTimeout(state.permWait.get(toolCallId));
+    state.permWait.delete(toolCallId);
+  }
+  if (!state.permSent) state.permSent = new Set();
+  state.permSent.add(toolCallId);
+  if (!state.permOpen) state.permOpen = new Set();
+  state.permOpen.add(sessionId);
+  const row = state.sessions.find((s) => s.sessionId === sessionId);
+  broadcast({
+    type: "perm_wait",
+    sessionId,
+    toolCallId,
+    kind,
+    title: tool.title || (kind === "command" ? "Command" : "Edit"),
+    path: pathName,
+    command: command.slice(0, 240),
+    sessionTitle: row?.title || "",
+    at: Date.now(),
+  });
+  return { toolCallId, kind };
+}
+
+function finishPermCard(sessionId, toolCallId) {
+  if (toolCallId && state.permWait?.has(toolCallId)) {
+    clearTimeout(state.permWait.get(toolCallId));
+    state.permWait.delete(toolCallId);
+  }
+  if (toolCallId) state.permSent?.delete(toolCallId);
+  state.permOpen?.delete(sessionId);
+  if (toolCallId) broadcast({ type: "perm_clear", sessionId, toolCallId, at: Date.now() });
+}
+
+function holdHeadlessPerm(sessionId, params) {
+  const slot = headless.get(sessionId);
+  if (!slot) return Promise.reject(new Error("no headless session"));
+  const card = armPermCard(sessionId, params);
+  return new Promise((resolve, reject) => {
+    slot.pendingPerm = { resolve, reject, params, toolCallId: card.toolCallId, kind: card.kind };
+  });
+}
+
+function answerHeadlessPerm(sessionId, key, feedback) {
+  const slot = headless.get(sessionId);
+  const pending = slot?.pendingPerm;
+  if (!pending) return false;
+  slot.pendingPerm = null;
+  const optionId = headlessOptionId(key, pending.params?.options, pending.kind);
+  const outcome = { outcome: "selected", optionId };
+  if (key === "4" && feedback) outcome._meta = { feedback, reject_reason: feedback };
+  finishPermCard(sessionId, pending.toolCallId);
+  pending.resolve({ outcome });
+  return true;
+}
+
+function holdHeadlessPlan(sessionId, params) {
+  const slot = headless.get(sessionId);
+  if (!slot) return Promise.reject(new Error("no headless session"));
+  const row = state.sessions.find((s) => s.sessionId === sessionId);
+  broadcast({
+    type: "plan_ready",
+    sessionId,
+    title: row?.title || "",
+    summary: "Review the plan to continue",
+    at: Date.now(),
+  });
+  return new Promise((resolve, reject) => {
+    slot.pendingPlan = {
+      resolve,
+      reject,
+      params,
+      permission: !!(params?.toolCall || (Array.isArray(params?.options) && params.options.length)),
+    };
+  });
+}
+
+function answerHeadlessPlan(sessionId, action) {
+  const slot = headless.get(sessionId);
+  const pending = slot?.pendingPlan;
+  if (!pending) return false;
+  slot.pendingPlan = null;
+  const options = pending.params?.options || [];
+  if (pending.permission) {
+    const optionId = action === "approve"
+      ? headlessOptionId("3", options, "edit")
+      : headlessOptionId("4", options, "edit");
+    pending.resolve({ outcome: { outcome: "selected", optionId } });
+    return true;
+  }
+  const outcome = action === "approve" ? "approved" : action === "quit" ? "abandoned" : "rejected";
+  pending.resolve({ outcome, feedback: "" });
+  return true;
+}
+
+function wireHeadlessClient(client, sessionId) {
+  client.onNotification = (msg) => {
+    const method = String(msg.method || "");
+    if (/queue\/changed/i.test(method)) {
+      applyQueueNotification(msg.params);
+      return;
+    }
+    if (method === "session/update" || method === "_x.ai/session/update" || method === "x.ai/session/update") {
+      const sid = msg.params?.sessionId || sessionId;
+      const update = msg.params?.update || msg.params;
+      if (!update) return;
+      noteLivePerm(sid, update);
+      const eventId = msg.params?._meta?.eventId || update._meta?.eventId || "";
+      broadcast({ type: "update", sessionId: sid, eventId, update, at: Date.now() });
+    }
+  };
+  client.onAgentRequest = async (method, params) => {
+    if (isHeadlessPlan(method, params)) return holdHeadlessPlan(sessionId, params || {});
+    if (method === "session/request_permission") return holdHeadlessPerm(sessionId, params || {});
+    return undefined;
+  };
+  client.onClose = () => {
+    const cur = headless.get(sessionId);
+    if (cur?.client !== client) return;
+    headless.delete(sessionId);
+    if (cur.idle) clearTimeout(cur.idle);
+    const err = new Error("headless closed");
+    const perm = cur.pendingPerm;
+    const plan = cur.pendingPlan;
+    cur.pendingPerm = null;
+    cur.pendingPlan = null;
+    try { perm?.reject(err); } catch { /* ignore */ }
+    try { plan?.reject(err); } catch { /* ignore */ }
+  };
+}
+
+async function openHeadless(sessionId) {
+  if (liveSessionAlive(sessionId)) throw new Error("session is open on the PC");
+  const prev = headless.get(sessionId);
+  if (prev) closeHeadless(sessionId);
+  if (!(await bridgeHealthy())) {
+    kickAcpBridge();
+    await new Promise((r) => setTimeout(r, 600));
+  }
+  const url = `ws://127.0.0.1:${HTTP_PORT}/acp?server-key=${encodeURIComponent(state.secret)}`;
+  const client = new AcpClient(url, { log: (...a) => log("[headless]", sessionId.slice(0, 8), ...a) });
+  const slot = { client, cwd: sessionCwd(sessionId), pendingPerm: null, pendingPlan: null, idle: null };
+  headless.set(sessionId, slot);
+  wireHeadlessClient(client, sessionId);
+  try {
+    await client.connect();
+    await client.request(
+      "initialize",
+      {
+        protocolVersion: 1,
+        clientCapabilities: {
+          fs: { readTextFile: true, writeTextFile: true },
+          terminal: true,
+          _meta: { "x.ai/planApproval": true },
+        },
+        clientInfo: { name: "grok-remote", title: "Grok Remote", version: PKG.version },
+      },
+      { timeoutMs: 30_000 }
+    );
+    try {
+      await client.request(
+        "authenticate",
+        { methodId: "cached_token", _meta: { headless: true } },
+        { timeoutMs: 15000 }
+      );
+    } catch (err) {
+      log("headless auth", sessionId.slice(0, 8), err.message);
+    }
+    if (liveSessionAlive(sessionId)) throw new Error("session is open on the PC");
+    const resumed = await client.request(
+      "session/resume",
+      { sessionId, cwd: slot.cwd, mcpServers: [] },
+      { timeoutMs: 20000 }
+    );
+    const id = extractSessionId(resumed, sessionId);
+    if (id && id !== sessionId) throw new Error("resume returned a different session");
+    if (liveSessionAlive(sessionId)) throw new Error("session is open on the PC");
+    client.sessionId = sessionId;
+    if (headless.get(sessionId)?.client !== client) throw new Error("session is open on the PC");
+    log("headless resume", sessionId.slice(0, 8));
+    return slot;
+  } catch (err) {
+    if (headless.get(sessionId)?.client === client) closeHeadless(sessionId);
+    throw err;
+  }
+}
+
+async function ensureHeadless(sessionId) {
+  const existing = headless.get(sessionId);
+  if (existing?.client?.ready) {
+    if (existing.idle) {
+      clearTimeout(existing.idle);
+      existing.idle = null;
+    }
+    return existing;
+  }
+  const inflight = headlessOpen.get(sessionId);
+  if (inflight) return inflight;
+  const job = openHeadless(sessionId).finally(() => {
+    if (headlessOpen.get(sessionId) === job) headlessOpen.delete(sessionId);
+  });
+  headlessOpen.set(sessionId, job);
+  return job;
+}
+
 async function resumeGatewaySession(sessionId) {
+  const owned = headless.get(sessionId);
+  if (owned?.client?.ready && !liveSessionAlive(sessionId)) return owned.client;
   const acp = await ensureGatewayAcp();
   if (state.gatewayAcpSession === sessionId && acp.ready) return acp;
   const row = state.sessions.find((s) => s.sessionId === sessionId);
@@ -373,8 +754,180 @@ async function resumeGatewaySession(sessionId) {
   return acp;
 }
 
-async function ensureGatewayAcp() {
-  if (state.gatewayAcp?.ready) return state.gatewayAcp;
+function promptWasQueued(text) {
+  if (!text) return false;
+  const needle = String(text).slice(0, 80);
+  for (const entries of Object.values(state.pcQueue || {})) {
+    if (!Array.isArray(entries)) continue;
+    if (entries.some((e) => String(e.text || "").includes(needle))) return true;
+  }
+  return false;
+}
+
+async function waitPromptLanded(sessionId, text, ms = 8000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    if (promptWasQueued(text) || (text && historyContainsPrompt(sessionId, text))) return true;
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  return promptWasQueued(text) || (text ? historyContainsPrompt(sessionId, text) : false);
+}
+
+function injectViaBridge(sessionId, text, submit = true) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ sessionId, text, submit });
+    const req = http.request(
+      {
+        host: "127.0.0.1",
+        port: ACP_BRIDGE_HTTP_PORT,
+        path: "/inject",
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+        timeout: 15000,
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          let j = {};
+          try {
+            j = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+          } catch {
+            /* ignore */
+          }
+          if (res.statusCode === 200 && j.ok !== false) resolve(j);
+          else reject(new Error(j.error || "inject HTTP " + res.statusCode));
+        });
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("inject timeout"));
+    });
+    req.end(body);
+  });
+}
+
+function permToolKind(update) {
+  const label = [update?.title, update?.kind, update?._meta?.["x.ai/tool"]?.name, update?._meta?.["x.ai/tool"]?.kind]
+    .filter(Boolean)
+    .join(" ");
+  if (/run_terminal|bash|shell|execute/i.test(label)) return "command";
+  if (/search_replace|edit|write/i.test(label) && !/read_file|grep/i.test(label)) return "edit";
+  return "";
+}
+
+function noteLivePerm(sessionId, update) {
+  if (!update) return;
+  if (!state.permWait) state.permWait = new Map();
+  if (!state.permSent) state.permSent = new Set();
+  if (update.sessionUpdate === "tool_call" && permToolKind(update)) {
+    const id = update.toolCallId;
+    if (!id || state.permWait.has(id) || state.permSent.has(id)) return;
+    const kind = permToolKind(update);
+    const input = update.rawInput || {};
+    const path = String(input.path || input.file_path || input.target_file || "").trim();
+    const command = String(input.command || input.cmd || "").trim();
+    const timer = setTimeout(() => {
+      state.permWait.delete(id);
+      state.permSent.add(id);
+      if (!state.permOpen) state.permOpen = new Set();
+      state.permOpen.add(sessionId);
+      const row = state.sessions.find((s) => s.sessionId === sessionId);
+      broadcast({
+        type: "perm_wait",
+        sessionId,
+        toolCallId: id,
+        kind,
+        title: update.title || (kind === "command" ? "Command" : "Edit"),
+        path,
+        command: command.slice(0, 240),
+        sessionTitle: row?.title || "",
+        at: Date.now(),
+      });
+    }, 700);
+    state.permWait.set(id, timer);
+    return;
+  }
+  if (update.sessionUpdate === "tool_call_update" && update.toolCallId) {
+    const id = update.toolCallId;
+    const timer = state.permWait.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      state.permWait.delete(id);
+    }
+    if (state.permSent.has(id)) {
+      if (headless.get(sessionId)?.pendingPerm?.toolCallId === id) return;
+      state.permSent.delete(id);
+      state.permOpen?.delete(sessionId);
+      broadcast({ type: "perm_clear", sessionId, toolCallId: id, at: Date.now() });
+    }
+  }
+}
+
+async function deliverByInject(sessionId, text, pid) {
+  closeHeadless(sessionId);
+  await injectViaBridge(sessionId, text);
+  const landed = await waitPromptLanded(sessionId, text, 8000);
+  const queued = promptWasQueued(text) || !landed;
+  log("prompt inject", sessionId.slice(0, 8), "pid", pid, queued ? "queued" : landed ? "history" : "typed");
+  return { ok: true, accepted: true, landed: !!(landed || queued), queued, via: "inject", pid };
+}
+
+async function deliverLivePrompt(sessionId, prompt, text) {
+  const pid = liveSessionAlive(sessionId);
+  if (pid) {
+    try {
+      return await deliverByInject(sessionId, text, pid);
+    } catch (err) {
+      if (liveSessionAlive(sessionId)) throw err;
+      log("inject stale", sessionId.slice(0, 8), err.message);
+    }
+  }
+  let last = new Error("deliver failed");
+  for (let i = 0; i < 4; i++) {
+    const now = liveSessionAlive(sessionId);
+    if (now) {
+      try {
+        return await deliverByInject(sessionId, text, now);
+      } catch (err) {
+        if (liveSessionAlive(sessionId)) throw err;
+        log("inject stale", sessionId.slice(0, 8), err.message);
+      }
+    }
+    try {
+      if (!(await bridgeHealthy())) kickAcpBridge();
+      const slot = await ensureHeadless(sessionId);
+      const taken = liveSessionAlive(sessionId);
+      if (taken) return await deliverByInject(sessionId, text, taken);
+      let failed = null;
+      const turn = slot.client.request("session/prompt", { sessionId, prompt }, { timeoutMs: 300000 });
+      turn.then(
+        () => scheduleHeadlessIdle(sessionId),
+        () => scheduleHeadlessIdle(sessionId)
+      );
+      turn.catch((err) => {
+        failed = err;
+        log("prompt turn", sessionId.slice(0, 8), err.message);
+      });
+      const landed = await waitPromptLanded(sessionId, text, 8000);
+      if (failed && !landed) throw failed;
+      const queued = promptWasQueued(text);
+      log("prompt headless", sessionId.slice(0, 8), queued ? "queued" : landed ? "history" : "accepted");
+      return { ok: true, accepted: true, landed: !!(landed || queued), queued, via: "headless" };
+    } catch (err) {
+      last = err;
+      log("deliver retry", i + 1, err.message);
+      closeHeadless(sessionId);
+      kickAcpBridge();
+      await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+  throw last;
+}
+
+async function openGatewayAcp() {
   const secret = state.secret;
   const url = `ws://127.0.0.1:${HTTP_PORT}/acp?server-key=${encodeURIComponent(secret)}`;
   const client = new AcpClient(url, { log: (...a) => log("[acp]", ...a) });
@@ -386,6 +939,14 @@ async function ensureGatewayAcp() {
         log("queue/changed", JSON.stringify(msg.params || {}).slice(0, 500));
       }
       applyQueueNotification(msg.params);
+      return;
+    }
+    if (method === "session/update" || method === "_x.ai/session/update" || method === "x.ai/session/update") {
+      const sid = msg.params?.sessionId || state.gatewayAcpSession;
+      const update = msg.params?.update || msg.params;
+      if (!update) return;
+      const eventId = msg.params?._meta?.eventId || update._meta?.eventId || "";
+      broadcast({ type: "update", sessionId: sid, eventId, update, at: Date.now() });
     }
   };
   client.onClose = () => {
@@ -408,8 +969,32 @@ async function ensureGatewayAcp() {
     },
     { timeoutMs: 30_000 }
   );
+  try {
+    await client.request(
+      "authenticate",
+      { methodId: "cached_token", _meta: { headless: true } },
+      { timeoutMs: 15000 }
+    );
+  } catch (err) {
+    log("acp auth", err.message);
+  }
   state.gatewayAcp = client;
   return client;
+}
+
+async function ensureGatewayAcp() {
+  if (state.gatewayAcp?.ready) return state.gatewayAcp;
+  let last = new Error("acp connect failed");
+  for (let i = 0; i < 4; i++) {
+    try {
+      return await openGatewayAcp();
+    } catch (err) {
+      last = err;
+      log("acp retry", i + 1, err.message);
+      await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+    }
+  }
+  throw last;
 }
 
 async function startSidecar(secret) {
@@ -497,9 +1082,14 @@ function handleApi(req, res, u, secret, lanIp) {
       lanIp,
       httpPort: HTTP_PORT,
       acpPort: ACP_PORT,
-      acpReady: !!state.sidecar?.ready,
+      acpReady: !!state.gatewayAcp?.ready || !!state.sidecar?.ready,
+      headless: headless.size,
+      bridgeUp: !!state.bridgeUp,
       sessions: state.sessions.length,
       cwd: DEFAULT_CWD,
+      pid: process.pid,
+      uptimeSec: Math.round((Date.now() - STARTED_AT) / 1000),
+      startedAt: new Date(STARTED_AT).toISOString(),
     });
     return true;
   }
@@ -551,12 +1141,37 @@ function handleApi(req, res, u, secret, lanIp) {
     return true;
   }
 
+  if (u.pathname === "/api/account/usage" && req.method === "GET") {
+    const force = u.searchParams.get("force") === "1" || u.searchParams.get("force") === "true";
+    loadAccountUsageApi(force)
+      .then((snap) => {
+        sendJson(res, snap?.ok ? 200 : 502, snap || { ok: false, error: "usage unavailable" });
+      })
+      .catch((err) => {
+        sendJson(res, 502, { ok: false, error: String(err?.message || err).slice(0, 200) });
+      });
+    return true;
+  }
+
+  if ((u.pathname === "/api/admin/restart" || u.pathname === "/api/restart") && req.method === "POST") {
+    log("admin restart");
+    sendJson(res, 200, { ok: true, restarting: true, pid: process.pid, version: PKG.version });
+    setTimeout(() => process.exit(0), 250);
+    return true;
+  }
+
   if (u.pathname === "/api/fs") {
     const cwd = u.searchParams.get("cwd") || DEFAULT_CWD;
     const rel = u.searchParams.get("rel") || "";
     const q = u.searchParams.get("q") || "";
     if (q.trim().length >= 2) sendJson(res, 200, searchWorkspace(cwd, q));
     else sendJson(res, 200, listWorkspace(cwd, rel));
+    return true;
+  }
+
+  if (u.pathname === "/api/search" && req.method === "GET") {
+    const q = u.searchParams.get("q") || "";
+    sendJson(res, 200, { ok: true, hits: searchSessionText(q) });
     return true;
   }
 
@@ -581,7 +1196,6 @@ function handleApi(req, res, u, secret, lanIp) {
             sendJson(res, 400, { ok: false, error: "text required" });
             return;
           }
-          const acp = await resumeGatewaySession(sessionId);
           let outbound = text;
           if (outbound && !outbound.startsWith("[Grok Remote]") && !outbound.startsWith("/")) {
             outbound = "[Grok Remote] " + outbound;
@@ -593,19 +1207,16 @@ function handleApi(req, res, u, secret, lanIp) {
               prompt.push({ type: "image", mimeType: img.mime || "image/png", data: img.b64 });
             }
           }
-          const turn = acp.request("session/prompt", { sessionId, prompt }, { timeoutMs: 300000 });
-          sendJson(res, 200, { ok: true, accepted: true });
-          turn.catch((err) => {
-            log("prompt turn", err.message);
-            if (/ws closed|WebSocket/i.test(String(err.message || ""))) {
-              try {
-                state.gatewayAcp?.close();
-              } catch {
-                /* ignore */
-              }
-              state.gatewayAcp = null;
-            }
+          const result = await deliverLivePrompt(sessionId, prompt, outbound);
+          const row = state.sessions.find((s) => s.sessionId === sessionId);
+          broadcast({
+            type: result.queued ? "prompt_queued" : "prompt_landed",
+            sessionId,
+            title: row?.title || "",
+            summary: outbound.slice(0, 140),
+            at: Date.now(),
           });
+          sendJson(res, result.landed ? 200 : 202, result);
         })
         .catch((err) => {
           log("prompt failed", err.message);
@@ -615,6 +1226,7 @@ function handleApi(req, res, u, secret, lanIp) {
             /* ignore */
           }
           state.gatewayAcp = null;
+          state.gatewayAcpSession = "";
           if (!res.writableEnded) sendJson(res, 500, { ok: false, error: err.message });
         });
       return true;
@@ -625,11 +1237,7 @@ function handleApi(req, res, u, secret, lanIp) {
     const qm = u.pathname.match(/^\/api\/sessions\/([^/]+)\/queue$/);
     if (qm && req.method === "GET") {
       const sessionId = decodeURIComponent(qm[1]);
-      resumeGatewaySession(sessionId)
-        .then(() => {
-          sendJson(res, 200, { ok: true, entries: state.pcQueue[sessionId] || [] });
-        })
-        .catch((err) => sendJson(res, 500, { ok: false, error: err.message, entries: [] }));
+      sendJson(res, 200, { ok: true, entries: state.pcQueue[sessionId] || [] });
       return true;
     }
     if (qm && req.method === "POST") {
@@ -637,26 +1245,45 @@ function handleApi(req, res, u, secret, lanIp) {
       readBody(req)
         .then(async (body) => {
           const action = String(body.action || "").toLowerCase();
-          const acp = await resumeGatewaySession(sessionId);
+          const acp = state.queueWatch?.ready ? state.queueWatch : await resumeGatewaySession(sessionId);
           const id = body.id != null ? String(body.id) : "";
           const index = body.index != null ? Number(body.index) : undefined;
+          const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+          const fromIndex = body.fromIndex != null ? Number(body.fromIndex) : index;
+          const toIndex = body.toIndex != null ? Number(body.toIndex) : undefined;
+          const withSession = (extra) => ({ sessionId, ...extra });
           const payloads =
             action === "clear"
-              ? [{}]
+              ? [withSession({}), {}]
+              : action === "reorder"
+                ? [
+                    withSession({ fromIndex, toIndex }),
+                    { fromIndex, toIndex },
+                    { from_index: fromIndex, to_index: toIndex },
+                    { ids },
+                    { order: ids },
+                    { id, fromIndex, toIndex },
+                  ]
               : action === "interject" || action === "start"
-                ? [{ id }, { entryId: id }, { index }]
-                : action === "remove" || action === "cancel"
-                  ? [{ id }, { entryId: id }, { index }]
-                  : null;
+                ? [withSession({ id }), { id }, { entryId: id }, { index }]
+                : action === "edit" || action === "hold"
+                  ? [withSession({ id }), { id }, { entryId: id }, { index }]
+                  : action === "remove" || action === "cancel"
+                    ? [withSession({ id }), { id }, { entryId: id }, { index }]
+                    : null;
           if (!payloads) {
-            sendJson(res, 400, { ok: false, error: "action must be cancel, start, or clear" });
+            sendJson(res, 400, { ok: false, error: "action must be cancel, start, edit, clear, or reorder" });
             return;
           }
           const method =
             action === "clear"
               ? "x.ai/queue/clear"
+              : action === "reorder"
+                ? "x.ai/queue/reorder"
               : action === "interject" || action === "start"
                 ? "x.ai/queue/interject"
+              : action === "edit" || action === "hold"
+                ? "x.ai/queue/hold_edit"
                 : "x.ai/queue/remove";
           let lastErr = null;
           for (const params of payloads) {
@@ -699,21 +1326,54 @@ function handleApi(req, res, u, secret, lanIp) {
       readBody(req)
         .then(async (body) => {
           const action = String(body.action || "").toLowerCase();
-          if (!["approve", "quit"].includes(action)) {
-            sendJson(res, 400, { ok: false, error: "action must be approve or quit" });
+          const key = action === "approve" ? "a" : action === "quit" ? "q" : action === "revise" ? "s" : "";
+          if (!key) {
+            sendJson(res, 400, { ok: false, error: "action must be approve, revise, or quit" });
             return;
           }
-          if (!state.sidecar?.ready) {
-            sendJson(res, 503, { ok: false, error: "sidecar not ready" });
+          if (liveSessionAlive(sessionId)) {
+            await injectViaBridge(sessionId, key, false);
+            sendJson(res, 200, { ok: true, action, sent: key });
             return;
           }
-          await state.sidecar.request("session/resume", { sessionId }, 20000);
-          await state.sidecar.request(
-            "session/prompt",
-            { sessionId, prompt: [{ type: "text", text: "/plan" }] },
-            60000
-          );
-          sendJson(res, 200, { ok: true, action, sent: "/plan" });
+          if (answerHeadlessPlan(sessionId, action)) {
+            sendJson(res, 200, { ok: true, action, via: "headless" });
+            return;
+          }
+          sendJson(res, 503, { ok: false, error: "no live PC window for this session" });
+        })
+        .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  {
+    const prm = u.pathname.match(/^\/api\/sessions\/([^/]+)\/perm-action$/);
+    if (prm && req.method === "POST") {
+      const sessionId = decodeURIComponent(prm[1]);
+      readBody(req)
+        .then(async (body) => {
+          const key = String(body.key || "").trim();
+          if (!/^[1-4]$/.test(key)) {
+            sendJson(res, 400, { ok: false, error: "key must be 1-4" });
+            return;
+          }
+          if (!liveSessionAlive(sessionId)) {
+            const feedback = String(body.feedback || "").trim();
+            if (answerHeadlessPerm(sessionId, key, feedback)) {
+              sendJson(res, 200, { ok: true, key, via: "headless" });
+              return;
+            }
+            sendJson(res, 503, { ok: false, error: "no live PC window for this session" });
+            return;
+          }
+          await injectViaBridge(sessionId, key, false);
+          const feedback = String(body.feedback || "").trim();
+          if (feedback && key === "4") {
+            await new Promise((r) => setTimeout(r, 350));
+            await injectViaBridge(sessionId, feedback, true);
+          }
+          sendJson(res, 200, { ok: true, key });
         })
         .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
       return true;
@@ -726,6 +1386,10 @@ function handleApi(req, res, u, secret, lanIp) {
       const sessionId = decodeURIComponent(rm[1]);
       readBody(req)
         .then((body) => {
+          if (body.auto) {
+            sendJson(res, 200, renameSession(sessionId, "", { auto: true }));
+            return;
+          }
           const title = String(body.title || "").trim();
           if (!title) return sendJson(res, 400, { ok: false, error: "title required" });
           sendJson(res, 200, renameSession(sessionId, title));
@@ -753,7 +1417,108 @@ function handleApi(req, res, u, secret, lanIp) {
   {
     const hm = u.pathname.match(/^\/api\/sessions\/([^/]+)\/history$/);
     if (hm) {
-      sendJson(res, 200, buildHistory(decodeURIComponent(hm[1])));
+      sendJson(res, 200, buildHistory(decodeURIComponent(hm[1]), { maxAgeMs: 7 * 24 * 60 * 60 * 1000 }));
+      return true;
+    }
+  }
+
+  {
+    const rm = u.pathname.match(/^\/api\/sessions\/([^/]+)\/rewind$/);
+    if (rm && req.method === "GET") {
+      sendJson(res, 200, listRewindPoints(decodeURIComponent(rm[1])));
+      return true;
+    }
+    if (rm && req.method === "POST") {
+      const sessionId = decodeURIComponent(rm[1]);
+      readBody(req)
+        .then(async (body) => {
+          const promptIndex = Number(body.promptIndex);
+          if (!Number.isFinite(promptIndex)) {
+            sendJson(res, 400, { ok: false, error: "promptIndex required" });
+            return;
+          }
+          const acp = await resumeGatewaySession(sessionId);
+          let result;
+          try {
+            result = await acp.request(
+              "x.ai/rewind/execute",
+              { sessionId, target_index: promptIndex },
+              { timeoutMs: 30000 }
+            );
+          } catch (err) {
+            result = await acp.request(
+              "x.ai/rewind/execute",
+              { sessionId, prompt_index: promptIndex },
+              { timeoutMs: 30000 }
+            ).catch(() => {
+              throw err;
+            });
+          }
+          sendJson(res, 200, { ok: true, result });
+        })
+        .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  {
+    const km = u.pathname.match(/^\/api\/sessions\/([^/]+)\/cancel$/);
+    if (km && req.method === "POST") {
+      const sessionId = decodeURIComponent(km[1]);
+      readBody(req)
+        .then(async () => {
+          const acp = await resumeGatewaySession(sessionId);
+          try {
+            acp.notify("session/cancel", { sessionId });
+          } catch {
+            await acp.request("session/cancel", { sessionId }, { timeoutMs: 8000 }).catch(() => {});
+          }
+          sendJson(res, 200, { ok: true });
+        })
+        .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  {
+    const fm = u.pathname.match(/^\/api\/sessions\/([^/]+)\/fork$/);
+    if (fm && req.method === "POST") {
+      const sessionId = decodeURIComponent(fm[1]);
+      readBody(req)
+        .then(async () => {
+          const acp = await resumeGatewaySession(sessionId);
+          const result = await acp.request("x.ai/session/fork", { sessionId }, { timeoutMs: 30000 });
+          const newId =
+            extractSessionId(result) ||
+            result?.newSessionId ||
+            result?.session?.sessionId ||
+            null;
+          refreshRoster();
+          sendJson(res, 200, { ok: true, sessionId: newId, result });
+        })
+        .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
+      return true;
+    }
+  }
+
+  {
+    const cm = u.pathname.match(/^\/api\/sessions\/([^/]+)\/compact$/);
+    if (cm && req.method === "POST") {
+      const sessionId = decodeURIComponent(cm[1]);
+      readBody(req)
+        .then(async (body) => {
+          const note = String(body.note || body.context || "").trim();
+          const acp = await resumeGatewaySession(sessionId);
+          const cmd = note ? "/compact " + note : "/compact";
+          const turn = acp.request(
+            "session/prompt",
+            { sessionId, prompt: [{ type: "text", text: cmd }] },
+            { timeoutMs: 180000 }
+          );
+          sendJson(res, 200, { ok: true, accepted: true });
+          turn.catch((err) => log("compact", err.message));
+        })
+        .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
       return true;
     }
   }
@@ -810,6 +1575,23 @@ function handleApi(req, res, u, secret, lanIp) {
             if (update) {
               const eventId = update._meta?.eventId || "";
               res.write(`data: ${JSON.stringify({ type: "update", eventId, update })}\n\n`);
+              noteLivePerm(sessionId, update);
+              const label = [update.title, update.kind, update._meta?.["x.ai/tool"]?.name].filter(Boolean).join(" ");
+              if (update.sessionUpdate === "tool_call" && /exit[_\s-]*plan/i.test(label)) {
+                if (!state.planLiveAt) state.planLiveAt = {};
+                const prev = state.planLiveAt[sessionId] || 0;
+                if (Date.now() - prev > 15000) {
+                  state.planLiveAt[sessionId] = Date.now();
+                  const row = state.sessions.find((s) => s.sessionId === sessionId);
+                  broadcast({
+                    type: "plan_ready",
+                    sessionId,
+                    title: row?.title || "",
+                    summary: "Review the plan to continue",
+                    at: Date.now(),
+                  });
+                }
+              }
             }
           }
         } catch {
@@ -864,14 +1646,54 @@ function serveStatic(req, res, u) {
   const file = path.normalize(path.join(PUBLIC, rel));
   if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     const fallback = path.join(PUBLIC, "index.html");
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.writeHead(200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      Pragma: "no-cache",
+    });
     res.end(fs.readFileSync(fallback));
     return;
   }
   const headers = { "Content-Type": mime(file) };
-  if (/\.(html|js|css|webmanifest)$/i.test(file)) headers["Cache-Control"] = "no-store";
+  if (/\.(html|js|css|webmanifest)$/i.test(file)) {
+    headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+    headers.Pragma = "no-cache";
+  }
   res.writeHead(200, headers);
   fs.createReadStream(file).pipe(res);
+}
+
+async function startQueueWatch() {
+  if (state.queueWatch?.ready || state._queueWatchStarting) return;
+  state._queueWatchStarting = true;
+  const url = `ws://127.0.0.1:${HTTP_PORT}/acp?server-key=${encodeURIComponent(state.secret)}`;
+  const client = new AcpClient(url, { log: (...a) => log("[queue]", ...a) });
+  client.onNotification = (msg) => {
+    const method = String(msg.method || "");
+    if (!/queue\/changed/i.test(method)) return;
+    log("queue/changed", JSON.stringify(msg.params || {}).slice(0, 400));
+    applyQueueNotification(msg.params);
+  };
+  client.onClose = () => {
+    if (state.queueWatch === client) state.queueWatch = null;
+    setTimeout(() => {
+      startQueueWatch().catch((err) => log("queue watch", err.message));
+    }, 4000);
+  };
+  try {
+    await client.connect();
+    await client.handshake({ createSession: false });
+    state.queueWatch = client;
+    log("queue watch ready");
+  } catch (err) {
+    log("queue watch", err.message);
+    try { client.close(); } catch { /* ignore */ }
+    setTimeout(() => {
+      startQueueWatch().catch((e) => log("queue watch", e.message));
+    }, 8000);
+  } finally {
+    state._queueWatchStarting = false;
+  }
 }
 
 async function main() {
@@ -893,22 +1715,53 @@ async function main() {
       if (handleApi(req, res, u, secret, lanIp)) return;
       serveStatic(req, res, u);
     } catch (err) {
-      res.writeHead(500).end(String(err.message || err));
+      try {
+        res.writeHead(500).end(String(err.message || err));
+      } catch {
+        /* headers already sent */
+      }
     }
   });
+  server.keepAliveTimeout = 65000;
+  server.headersTimeout = 66000;
+  server.requestTimeout = 0;
   attachAcpProxy(server, { secret, log: (...a) => log("[proxy]", ...a) });
 
   await new Promise((resolve, reject) => {
-    server.listen(HTTP_PORT, BIND_HOST, (err) => (err ? reject(err) : resolve()));
+    let tries = 0;
+    const onErr = (err) => {
+      if (err.code === "EADDRINUSE" && tries < 20) {
+        tries += 1;
+        log("port busy, retry", tries);
+        setTimeout(() => server.listen(HTTP_PORT, BIND_HOST), 1500);
+        return;
+      }
+      reject(err);
+    };
+    server.on("error", onErr);
+    server.listen(HTTP_PORT, BIND_HOST, () => {
+      server.removeListener("error", onErr);
+      server.on("error", (e) => log("http", e.message));
+      resolve();
+    });
   });
   log(`listening http://${lanIp}:${HTTP_PORT}  (phone: open this URL)`);
   log(`secret stored in ${SECRET_FILE}`);
 
   await refreshRoster();
   log("disk roster", state.sessions.length, "sessions");
-  setInterval(() => refreshRoster().catch((e) => log("roster tick", e.message)), 8000);
+  setInterval(() => refreshRoster().catch((e) => log("roster tick", e.message)), 2000);
   log("sidecar ACP disabled — disk roster + phone /acp only");
+  startQueueWatch();
   startUacWatch();
+  const tickBridge = async () => {
+    const up = await bridgeHealthy();
+    if (up !== state.bridgeUp) log("bridge", up ? "up" : "down");
+    state.bridgeUp = up;
+    if (!up) kickAcpBridge();
+  };
+  void tickBridge();
+  setInterval(() => tickBridge().catch((e) => log("bridge tick", e.message)), 5000);
 
   const shutdown = () => {
     log("shutdown");
@@ -931,6 +1784,8 @@ async function main() {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  process.on("uncaughtException", (err) => log("uncaught", err.message || err));
+  process.on("unhandledRejection", (err) => log("unhandled", err?.message || err));
 }
 
 main().catch((err) => {

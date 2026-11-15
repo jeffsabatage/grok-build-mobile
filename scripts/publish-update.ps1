@@ -48,7 +48,11 @@ Write-Utf8 $shellPath $shell
 $gradlePath = Join-Path $root 'android-app\android\app\build.gradle'
 $gradle = Read-Utf8 $gradlePath
 if ($Version -match '^(\d+)\.(\d+)\.(\d+)$') {
-  $code = ([int]$Matches[1] * 10000) + ([int]$Matches[2] * 100) + [int]$Matches[3]
+  $maj = [int]$Matches[1]
+  $min = [int]$Matches[2]
+  $pat = [int]$Matches[3]
+  $code = ($maj * 10000) + ($min * 100) + $pat
+  if ($maj -eq 0 -and $min -eq 1 -and $pat -ge 100) { $code = 1000 + $pat }
   $gradle = [regex]::Replace($gradle, 'versionCode \d+', "versionCode $code")
   $gradle = [regex]::Replace($gradle, 'versionName "[^"]+"', "versionName `"$Version`"")
   Write-Utf8 $gradlePath $gradle

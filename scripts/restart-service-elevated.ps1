@@ -1,5 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$plain = Join-Path $here 'restart-gateway.ps1'
+if (Test-Path -LiteralPath $plain) {
+  & $plain
+  if ($LASTEXITCODE -eq 0) { exit 0 }
+}
 $install = Join-Path $here 'install-service.ps1'
 $id = [Security.Principal.WindowsIdentity]::GetCurrent()
 $admin = (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -11,3 +16,4 @@ if (-not $admin) {
 }
 & $install -Action Restart
 exit $LASTEXITCODE
+
