@@ -25,6 +25,8 @@ Optional environment:
 
 A pairing secret is created at `.secret` on first run. Do not commit that file.
 
+The gateway is for the same Wi-Fi as the phone. Do not port-forward port 2420. `/api/pair` returns that secret only to a client whose TCP address is loopback, link-local, RFC1918, or a private overlay such as Tailscale (`100.64.0.0/10`, IPv6 ULA). A public WAN address is refused. No internet login was added. Android still uses cleartext HTTP to the LAN address, because Android cannot limit cleartext to private IP ranges. Details are in [SECURITY.md](SECURITY.md).
+
 ## Windows service
 
 ```powershell

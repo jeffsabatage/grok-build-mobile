@@ -5146,6 +5146,9 @@ async function connect() {
     void checkForAppUpdate();
     setSub("Pairing…");
     const pairRes = await fetch(api("/api/pair"), { cache: "no-store" });
+    if (pairRes.status === 403) {
+      throw new Error("Pairing is limited to devices on the same LAN as this PC.");
+    }
     if (!pairRes.ok) throw new Error("pair HTTP " + pairRes.status);
     const pair = await pairRes.json();
     if (!pair.ws || !pair.secret) throw new Error("pair payload missing ws/secret");

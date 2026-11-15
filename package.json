@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
+    "test": "node --test",
     "spike": "node scripts/spike-acp.mjs",
     "service:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-service.ps1 -Action Install",
     "service:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-service.ps1 -Action Status",
